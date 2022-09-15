@@ -13,6 +13,9 @@ function printResponse(response) {
     fileName.textContent = responseObj.fileName;
     fileSource.textContent = responseObj.fileSource;
     let percentageValue = getPercentage(responseObj.totalBytes, responseObj.length);
+    if (percentageValue == 100) {
+        // change resume and cancel to hidden and finished to visible
+    }
     progress.textContent = responseObj.totalBytes + ' / ' + responseObj.length + ' bytes [ ' + percentageValue + '% ]';
 
     percentage.innerHTML = percentageValue + "%";

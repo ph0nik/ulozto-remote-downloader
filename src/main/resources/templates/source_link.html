@@ -22,17 +22,20 @@
 <div class="row">
     <a th:href="@{/ulozto/}" href="#">ulozto remote downloader</a>
 </div>
-<div th:switch="${future_status}" class="row">
-    <div th:case="${true}">
+<div class="row">
+    <!-- input link -->
+    <div th:hidden="${!future_status}">
         <!-- when downloader is not working -->
-        <form class="form-control"
-              action="#"
+        <form action="#"
               th:action="@{/ulozto/get_link/page={page} (page=${page})}"
               method="post">
-            <div>
-                <span>Insert link</span>
+            <div class="row bg-light">
+                <div class="col">
+                    <b>Insert link</b>
+                </div>
             </div>
-            <div class="input-group">
+            <div class="input-group my-2">
+                <i class="bi bi-link-45deg form-control-sm border-0 fs-5"></i>
                 <input class="form-control" type="text" value="" name="page">
 
                 <button type="submit" class="btn btn-primary">send link</button>
@@ -41,70 +44,137 @@
         </form>
     </div>
     <!-- resume button, hidden if resume is false -->
-    <div th:hidden="${!resume}">resume
-        <form class="form-control"
-              action="#"
-              th:action="@{/ulozto/resume_download/}"
-              method="get">
-            <button type="submit" class="btn btn-primary">resume</button>
-        </form>
-
-    </div>
+    <!--    <div th:hidden="${!resume}">resume-->
+    <!--        <form class="form-control"-->
+    <!--              action="#"-->
+    <!--              th:action="@{/ulozto/resume_download/}"-->
+    <!--              method="get">-->
+    <!--            <button type="submit" class="btn btn-primary">resume</button>-->
+    <!--        </form>-->
+    <!--    </div>-->
     <!-- download status, hidden if download thread is inactive  -->
-    <div th:case="${false}">
-        <p>Source link:
-            <span id="file_source">source</span>
-        </p>
 
-        <p>File name:
-            <span id="file_name">name</span>
-        </p>
-        <p>Download progress:
-        <div class="progress">
-            <div class="progress-bar" id="progress" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0"
-                 aria-valuemax="100">0%
+    <!--now downloading title-->
+    <div th:hidden="${future_status}">
+        <div class="row bg-light">
+            <div class="col">
+                <b>Now downloading</b>
             </div>
         </div>
-        <span id="progress-text">progress</span>
-        </p>
-        <!-- cancel current download -->
-        <form th:hidden="${future_status}"
-              class="form-control"
-              action="#"
-              th:action="@{/ulozto/cancel_current/}"
-              method="get">
-            <button type="submit" class="btn btn-primary">cancel</button>
-        </form>
-        <!-- resume current download -->
+        <div class="row align-items-center justify-content-start">
+            <!--resume button-->
+            <div th:hidden="${!resume}" class="col-2">
+                <form action="#"
+                      th:action="@{/ulozto/resume_download/}"
+                      method="get">
+                    <button type="submit" class="btn btn-none btn-lg col-12">
+                        <i class="bi bi-arrow-clockwise text-primary fs-4"></i>
+                        <span class="text-primary">resume</span>
+                    </button>
+                </form>
+            </div>
+            <!--cancel button-->
+            <div th:hidden="${resume}" class="col-2">
+                <form action="#"
+                      th:action="@{/ulozto/cancel_current/}"
+                      method="get">
+                    <button type="submit" class="btn btn-none btn-lg col-12">
+                        <i class="bi bi-x-circle text-danger fs-4"></i>
+                        <span class="text-danger">cancel</span>
+                    </button>
+                </form>
+            </div>
+<!--            TODO make it visible after finish-->
+            <!--finished-->
+            <div th:hidden="${download_finished}" class="col-2 text-center">
+                <i class="bi bi-check-lg text-success fs-4"></i>
+                <span class="text-success fs-5">done!</span>
+            </div>
+            <!--file info-->
+            <div class="col-10">
+                <div class="row small">
+                    <div class="col-1 text-break">
+                        <b>file name:</b>
+                    </div>
+                    <div class="col-11 text-break" id="file_name">
+                        some name.mkv
+                    </div>
+                </div>
+                <div class="row small">
+                    <div class="col-1">
+                        <b>link:</b>
+                    </div>
+                    <div class="col-11 text-break" id="file_source">
+                        https://content-provider33.uloz.to/Ps;Hs;up=1;uid=13277886;cid=191017267;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=GxjyLK5;fs=84KCH9uJM;hid=oA3E1SK;rid=496042806;tm=1663394615;ut=f;rs=0;fet=download_free;He;ch=cd32c41466ba0a985f9085d568f70334;Pe/file/84KCH9uJM/tales-from-the-crypt-1972-titulky-sk-1080p-bluray-x264-dts-mkv?bD&u=13277886&c=191017267&De
+                    </div>
+                </div>
+                <div class="row small">
+                    <div class="col-1">
+                        <b>progress:</b>
+                    </div>
+                    <div class="col-11" id="progress-text">
+                        50 / 100 MB (50%)
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--progres bar-->
+        <div class="row justify-content-start">
+            <div class="col-12">
+                <div class="progress my-2" style="height: 1em">
+                    <div class="progress-bar bg-warning" id="progress" role="progressbar" style="width: 0%;"
+                         aria-valuenow="0"
+                         aria-valuemin="0"
+                         aria-valuemax="100">0%
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <!-- last download file -->
-    <div class="row small">
-        <div class="row">
-            <div class="col border">
-                <b>Last download:</b>
-            </div>
-        </div>
-        <div class="row border">
-            <div class="col-2">
-                <b>file name:</b>
-            </div>
+    <div th:hidden="${!future_status}" class="border-bottom border-dark">
+        <div class="row bg-light">
             <div class="col">
-                some file
-            </div>
-            <div th:hidden="${!resume}" class="col-1">
-                    <form
-                          action="#"
-                          th:action="@{/ulozto/resume_download/}"
-                          method="get">
-                        <button type="submit" class="btn btn-secondary btn-sm">resume</button>
-                    </form>
-            </div>
-            <div th:hidden="${resume}" class="col-1 large">
-                <b><i class="bi bi-check2 text-success large"></i></b>
+                <b>Download history</b>
             </div>
         </div>
-
-        <div class="col"></div>
+        <div class="row align-items-center mb-2 justify-content-start">
+            <!--resume button-->
+            <div th:hidden="${!resume}" class="col-2">
+                <form action="#"
+                      th:action="@{/ulozto/resume_download/}"
+                      method="get">
+                    <button type="submit" class="btn btn-none btn-lg col-12">
+                        <i class="bi bi-arrow-clockwise text-primary fs-4"></i>
+                        <span class="text-primary">resume</span>
+                    </button>
+                </form>
+            </div>
+            <!--finished-->
+            <div th:hidden="${resume}" class="col-2 text-center">
+                <i class="bi bi-check-lg text-success fs-4"></i>
+                <span class="text-success fs-5">done!</span>
+            </div>
+            <!--file info-->
+            <div class="col-10">
+                <div class="row small">
+                    <div class="col-1">
+                        <b>file name:</b>
+                    </div>
+                    <div class="col-11">
+                        some name.mkv
+                    </div>
+                </div>
+                <div class="row small">
+                    <div class="col-1">
+                        <b>file size:</b>
+                    </div>
+                    <div class="col-11">
+                        50 / 100 MB (50%)
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <!-- temporarily show set folder -->
     <div class="col">

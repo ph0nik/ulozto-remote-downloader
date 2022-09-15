@@ -75,10 +75,12 @@ public class FileDownloadService {
         Long totalBytes = 0L;
         try {
             totalBytes = downloadWithFolder(downloadElement.getFileName(), downloadFolder, downloadElement.getFinalLink(), downloadElement.getDataOffset());
+            currentDownloadElement.setResume(Thread.currentThread().isInterrupted());
         } catch (IOException e) {
+            currentDownloadElement.setResume(true);
             System.out.println("[ general_download ] " + e.getMessage());
         }
-        currentDownloadElement.setResume(Thread.currentThread().isInterrupted());
+//        currentDownloadElement.setResume(Thread.currentThread().isInterrupted());
         currentDownloadElement.setDataOffset(totalBytes);
         // TODO return
         csvService.saveState(currentDownloadElement);
@@ -164,10 +166,8 @@ public class FileDownloadService {
             if (body == null) {
                 throw new IllegalStateException("[ download ] Response doesn't contain a file");
             }
-            Double length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
-            // check values
-            System.out.println("total bytes: " +  downloadOffset + " | download length: " + length);
-            currentDownloadElement.setDataTotalSize(length.longValue());
+            double length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
+            currentDownloadElement.setDataTotalSize((long) length);
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length);
         }
         return downloadedBytes;

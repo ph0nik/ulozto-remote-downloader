@@ -6,12 +6,12 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
 @Service
 public class RootFolderResolver {
 
-    public static final String FOLDER = "download.folder";
+    public static final String FOLDER = "dpath";
 
     private String userFolder;
 
@@ -24,14 +24,15 @@ public class RootFolderResolver {
     }
 
     /*
-    * Check if given path exists
+    * Returns true if given path exists and if it points do directory, otherwise returns false
     * */
     private boolean validateFolder(String userPath) {
-        return Files.exists(Paths.get(userPath));
+        Path path = Path.of(userPath);
+        return Files.exists(path) && Files.isDirectory(path);
     }
 
     /*
-    * Check if user folder is non-empty and if it exists
+    * Returns true if user folder is non-empty and if it exists
     * */
     public boolean isFolderValid() {
         if (userFolder == null || userFolder.isEmpty()) return false;

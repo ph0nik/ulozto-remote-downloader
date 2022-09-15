@@ -17,7 +17,18 @@ public class SessionBean extends CsvBean {
     private long dataOffset;
 
     @CsvBindByName
+    private long dataSize;
+
+    @CsvBindByName
     private boolean resume;
+
+    public long getDataSize() {
+        return dataSize;
+    }
+
+    public void setDataSize(long dataSize) {
+        this.dataSize = dataSize;
+    }
 
     public String getFileName() {
         return fileName;
@@ -61,11 +72,12 @@ public class SessionBean extends CsvBean {
 
     @Override
     public String toString() {
-        return "CsvObject{" +
+        return "SessionBean{" +
                 "fileName='" + fileName + '\'' +
                 ", captchaRequestUrl='" + captchaRequestUrl + '\'' +
                 ", finalLink='" + finalLink + '\'' +
                 ", dataOffset=" + dataOffset +
+                ", dataSize=" + dataSize +
                 ", resume=" + resume +
                 '}';
     }

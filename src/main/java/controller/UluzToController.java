@@ -39,6 +39,11 @@ public class UluzToController {
 
     private Boolean resumable = false;
 
+    @ModelAttribute("download_finished")
+    public Boolean elementDownloadFinished() {
+        return downloadElement.getDataTotalSize() - downloadElement.getDataOffset() == 0;
+    }
+
     @ModelAttribute("resume")
     public Boolean getResumeStatus() {
         return resumable;
