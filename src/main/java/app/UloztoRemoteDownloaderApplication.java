@@ -25,7 +25,7 @@ public class UloztoRemoteDownloaderApplication {
 		if (args.length > 0) {
 			SpringApplication.run(UloztoRemoteDownloaderApplication.class, args);
 		} else {
-			System.out.println("No folder path provided, run with argument '--download.folder=<path>'");
+			System.out.println("No folder path provided, run with argument '--dpathr=<path>'");
 		}
 	}
 

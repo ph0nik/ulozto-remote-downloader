@@ -14,32 +14,21 @@ Install project with maven
 This will produce jar file within docker folder.
 
 
-## Run Locally
+## Run standalone jar with
 
-Clone the project
-
-```bash
-  git clone https://link-to-project
-```
-
-Go to the project directory
 
 ```bash
-  cd my-project
+  java -jar ulozto-remote-downloader-1.0-SNAPSHOT.jar --dpath=<download_path>
 ```
 
-Install dependencies
+Where <download_path> is target folder for the downloads.
 
+Launch UI at:
 ```bash
-  npm install
+  http://localhost:8081/ulozto/
 ```
 
-Start the server
-
-```bash
-  npm run start
-```
-
+TODO 
 
 compile with ...
 
