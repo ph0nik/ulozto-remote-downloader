@@ -9,12 +9,19 @@ function printResponse(response) {
     let fileSource = document.getElementById('file_source');
     let progress = document.getElementById('progress-text');
     let percentage = document.getElementById("progress");
+    let history = document.getElementById('downloadHistory');
+    let cancelButton = document.getElementById('currentDownloadCancel');
+    let finishButton = document.getElementById('currentDownloadDone');
 
     fileName.textContent = responseObj.fileName;
     fileSource.textContent = responseObj.fileSource;
     let percentageValue = getPercentage(responseObj.totalBytes, responseObj.length);
     if (percentageValue == 100) {
         // change resume and cancel to hidden and finished to visible
+        finishButton.removeAttribute('hidden');
+        cancelButton.setAttribute('hidden');
+//        finishButton.style.visibility = 'visible';
+//        cancelButton.style.visibility = 'hidden';
     }
     progress.textContent = responseObj.totalBytes + ' / ' + responseObj.length + ' bytes [ ' + percentageValue + '% ]';
 

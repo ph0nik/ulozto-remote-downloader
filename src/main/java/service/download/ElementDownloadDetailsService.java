@@ -3,6 +3,7 @@ package service.download;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import model.*;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -25,30 +26,35 @@ public class ElementDownloadDetailsService {
     private final static String ULUZ_CAPTCHA_GET = "https://ulozto.net/download-dialog/free/download?fileSlug=";
     private final static String ULUZ_CAPTCHA_RELOAD = "https://ulozto.net/reloadXapca.php?rnd=";
     private final static String ERROR_CAPTCHA_GET = "User authentication required. We noticed too many download requests from your IP. Confirm that you are not a robot.";
-//    private Map<String, String> cookies;
-//    private List<Cookie> cookieStore;
-
-//    public List<Cookie> getCookieStore() {
-//        return cookieStore;
-//    }
 
     public ElementDownloadDetailsService() {
-//        cookies = new HashMap<>();
-//        cookieStore = new ArrayList<>();
+
     }
 
-    public DownloadElement getDownloadInfo(DownloadElement downloadElement, String downloadFileSlugUrl) throws IOException {
-//        DownloadElement downloadElement = new DownloadElement();
+    public DownloadElement getDownloadInfo(DownloadElement downloadElement, String downloadFileSlugUrl) {
         try {
-            downloadElement.setFileName(getFileNameFromUrl(downloadFileSlugUrl));
-            downloadElement.setCaptchaRequestUrl(createUrlToGetCaptcha(fileIdResolver(downloadFileSlugUrl)));
-            // wait between get requests
-            Thread.sleep(500);
+            if (downloadFileSlugUrl != null) {
+                downloadElement.setFileName(getFileNameFromUrl(downloadFileSlugUrl));
+                downloadElement.setCaptchaRequestUrl(createUrlToGetCaptcha(fileIdResolver(downloadFileSlugUrl)));
+                // wait between get requests
+                Thread.sleep(500);
+            }
             downloadElement = sendRequestForCaptcha(downloadElement);
         } catch (InterruptedException e) {
+            System.out.println("[ get_download_info ] " + e.getMessage()); // sleep
+        } catch (HttpStatusException e) {
+            downloadElement.setStatusCode(e.getStatusCode());
+            downloadElement.setStatusMessage(e.getMessage());
+            System.out.println("[ get_download_info ] " + e.getMessage());
+        } catch (IOException e) {
+            downloadElement.setStatusMessage(e.getMessage());
             System.out.println("[ get_download_info ] " + e.getMessage());
         }
         return downloadElement;
+    }
+
+    public DownloadElement resumeDownloadInfo(DownloadElement downloadElement) {
+        return getDownloadInfo(downloadElement, null);
     }
 
     //    public RequestElementForm getDownloadInfo(String url) throws IOException, InterruptedException {
@@ -62,9 +68,14 @@ public class ElementDownloadDetailsService {
 //        requestElementForm = sendRequestForCaptcha(requestElementForm);
 //        return requestElementForm;
 //    }
+    /*
+    * Sends request for a captcha code, if server returns direct response input object is going
+    * to be updated with new values, if server returns redirect object is going to be
+    * updated with new response link value.
+    * */
     private DownloadElement sendRequestForCaptcha(DownloadElement downloadElement) throws IOException {
         // get custom response object with data
-        CustomResponse response = RequestService.sendRequestWithOkHttp(downloadElement.getCaptchaRequestUrl());
+        CustomResponse response = RequestService.sendGetWithOkHttp(downloadElement.getCaptchaRequestUrl());
         // print status code to console
         System.out.println("[ captcha_request ] response: " + response.getStatusCode());
         downloadElement.setStatusCode(response.getStatusCode());
@@ -134,7 +145,7 @@ public class ElementDownloadDetailsService {
         String reloadUrl = ULUZ_CAPTCHA_RELOAD + currentTimeLong;
 //        CustomResponse response = RequestService.sendRequestWithOkHttp(reloadUrl);
         try {
-            CustomResponse response = RequestService.sendRequestWithOkHttp(reloadUrl);
+            CustomResponse response = RequestService.sendGetWithOkHttp(reloadUrl);
             CaptchaReloadData captchaReloadData = new Gson().fromJson(response.getResponseBody(), CaptchaReloadData.class);
             requestElementForm.setPictureLink(captchaReloadData.getImage());
             requestElementForm.setTimestamp(captchaReloadData.getTimestamp().toString());
@@ -183,7 +194,7 @@ public class ElementDownloadDetailsService {
      * Get file name from element web page, returns file name with extension if found, otherwise returns empty string
      * */
     String getFileNameFromUrl(String url) throws IOException {
-        CustomResponse response = RequestService.sendRequestWithOkHttp(url);
+        CustomResponse response = RequestService.sendGetWithOkHttp(url);
         String title = Jsoup.parse(response.getResponseBody()).title();
         String illegalCharacters = "[/?<>\\\\*:|\"^]+";
         String regex = "(.*)\\s\\|";
@@ -201,14 +212,12 @@ public class ElementDownloadDetailsService {
 
 
     /*
-     * Send request and collect incoming cookies
+     * Send request
      * */
-    CustomResponse sendRequestWithOkHttp(String url) throws IOException {
-        CustomResponse response = RequestService.sendRequestWithOkHttp(url);
-//        MyCookieJar cookieJar = RequestService.getCookieJar();
-//        cookieStore = cookieJar.getCookieList();
-        return response;
-    }
+//    CustomResponse sendRequestWithOkHttp(String url) throws IOException {
+//        CustomResponse response = RequestService.sendGetWithOkHttp(url);
+//        return response;
+//    }
 
     /*
      * Send POST request and retrieve download link

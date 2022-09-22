@@ -16,6 +16,7 @@ public class NotificationController {
         this.dispatcher = dispatcher;
     }
 
+    // TODO after clients connect show current progress instantly
     @MessageMapping("/start")
     public void start(StompHeaderAccessor headerAccessor) {
         dispatcher.add(headerAccessor.getSessionId());

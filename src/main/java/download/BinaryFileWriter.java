@@ -1,5 +1,7 @@
 package download;
 
+import service.download.FileDownloadService;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,23 +21,27 @@ public class BinaryFileWriter implements AutoCloseable {
     }
 
     /*
-    * Passes data from input stream to output stream.
-    * Takes input stream and data length as arguments.
-    * Returns total bytes written.
-    * */
-    public long write(InputStream inputStream, double length) throws IOException {
+     * Passes data from input stream to output stream.
+     * Takes input stream and data length as arguments.
+     * Returns total bytes written.
+     * */
+    public long write(InputStream inputStream, double length, FileDownloadService serviceNotifier) {
         long totalBytes = 0;
         try (BufferedInputStream input = new BufferedInputStream(inputStream)) {
             byte[] dataBuffer = new byte[CHUNK_SIZE];
             int readBytes;
-            while ((readBytes = input.read(dataBuffer)) != -1 || Thread.currentThread().isInterrupted()) {
+//            while ((readBytes = input.read(dataBuffer)) != -1 || Thread.currentThread().isInterrupted()) {
+            while ((readBytes = input.read(dataBuffer)) != -1) {
                 totalBytes += readBytes;
                 outputStream.write(dataBuffer, 0, readBytes);
                 progressCallback.onProgress(offset + totalBytes, offset + length);
+                if (serviceNotifier.isCancel()) {
+                    inputStream.close();
+                }
             }
 //            return totalBytes;
         } catch (IOException ioException) {
-            System.out.println("\nWriter error: " + ioException.getMessage());
+            System.out.println("[ binary_writer ] " + ioException.getMessage());
         }
         return totalBytes;
     }

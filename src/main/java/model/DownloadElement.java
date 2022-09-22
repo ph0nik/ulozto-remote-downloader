@@ -1,5 +1,7 @@
 package model;
 
+import java.sql.Timestamp;
+
 public class DownloadElement {
 
     private RequestElementForm requestElementForm;
@@ -11,6 +13,24 @@ public class DownloadElement {
     private boolean resume;
     private int statusCode;
     private String statusMessage;
+
+    private Timestamp timestamp;
+
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Timestamp timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public double getPercentageProgress() {
+        if (dataTotalSize >= dataOffset) {
+            double v = (dataOffset * 100d) / dataTotalSize;
+            return Math.round(v * 100.0) / 100;
+        }
+        return 0;
+    }
 
     public long getDataTotalSize() {
         return dataTotalSize;
@@ -96,6 +116,7 @@ public class DownloadElement {
                 ", resume=" + resume +
                 ", statusCode=" + statusCode +
                 ", statusMessage='" + statusMessage + '\'' +
+                ", timestamp=" + timestamp +
                 '}';
     }
 }

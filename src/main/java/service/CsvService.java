@@ -19,7 +19,10 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -28,88 +31,166 @@ public class CsvService {
     private static final String STATE_FILE = "download_state.csv";
     private static final String DIR = "config";
 
+    private static final int MAX_LIST_SIZE = 10;
+
+    private Path stateFilePath;
+
     private List<CsvBean> beans;
 
     public CsvService() {
-        beans = new ArrayList<>();
+        this.beans = new ArrayList<>();
+        this.stateFilePath = Path.of(DIR).resolve(Path.of(STATE_FILE));
     }
 
     @PostConstruct
     private void initDirectory() {
         Path dir = Path.of(DIR);
         if (!Files.exists(dir)) {
+            System.out.println("[ init_csv ] directory not found");
             try {
+                System.out.println("[ init_csv ] creating directory: '" + dir + "'");
                 Files.createDirectory(dir);
             } catch (IOException e) {
-                System.out.println(e.getMessage());
+                System.out.println("[ init_csv ] " + e.getMessage());
             }
+        }
+        stateFilePath = dir.resolve(Path.of(STATE_FILE));
+        if (Files.exists(stateFilePath)) {
+            System.out.println("[ init_csv ] file exists");
+            beans = restoreState(stateFilePath, SessionBean.class);
+            beans.sort(Comparator.comparing(o -> ((SessionBean) o).getTimestamp()));
+            System.out.println("[ init_csv ] state file loaded [OK]");
+            System.out.println(beans);
+        } else {
+            System.out.println("[ init_csv ] no state file found");
         }
     }
 
-    public void restoreState(Path path, Class<? extends CsvBean> clazz) {
+    private List<CsvBean> restoreState(Path path, Class<? extends CsvBean> clazz) {
         try (Reader reader = Files.newBufferedReader(path)) {
             CsvToBean<CsvBean> csvToBean = new CsvToBeanBuilder<CsvBean>(reader)
                     .withQuoteChar('\'')
                     .withSeparator(CSVWriter.DEFAULT_SEPARATOR)
                     .withType(clazz)
                     .build();
-            beans = csvToBean.parse();
+            return csvToBean.parse();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.out.println("[ restore_state ] " + e.getMessage());
         }
-
+        // return empty list in case of error
+        return new ArrayList<>();
     }
 
     public void saveState(DownloadElement downloadElement) {
         createCsvObject(downloadElement);
-        Path p = Path.of(DIR).resolve(Path.of(STATE_FILE));
-        saveState(p);
+//        restoreState(p, SessionBean.class);
+//        System.out.println("after restore bean: " + beans);
+        saveState(stateFilePath);
     }
 
-    public void saveState(Path path) {
+    private void saveState(Path path) {
         try (Writer writer = new FileWriter(path.toFile())) {
-            System.out.println("save csv state");
+            System.out.println("[ save_state ] saving...");
             StatefulBeanToCsv<CsvBean> beanToCsv = new StatefulBeanToCsvBuilder<CsvBean>(writer)
                     .withQuotechar('\'')
                     .withSeparator(CSVWriter.DEFAULT_SEPARATOR)
                     .build();
             beanToCsv.write(beans);
         } catch (IOException | CsvDataTypeMismatchException | CsvRequiredFieldEmptyException e) {
-            throw new RuntimeException(e);
+            System.out.println("[ save_state ] " + e.getMessage());
         }
     }
 
-    public void createCsvObject(DownloadElement downloadElement) {
-        System.out.println("create csv bean");
-        SessionBean sessionBean = new SessionBean();
+    /*
+     * Parse DownloadElement to CSV Bean, created bean is added to end of bean list
+     * */
+    private void createCsvObject(DownloadElement downloadElement) {
+        // check if element exists, update existing
+        if (beans.size() == MAX_LIST_SIZE) beans.remove(0);
+        SessionBean existingBean = containsBeanWith(downloadElement);
+        SessionBean sessionBean = (existingBean != null) ? existingBean : new SessionBean();
+//        SessionBean sessionBean = new SessionBean();
         sessionBean.setCaptchaRequestUrl(downloadElement.getCaptchaRequestUrl());
         sessionBean.setResume(downloadElement.isResume());
         sessionBean.setDataOffset(downloadElement.getDataOffset());
+        sessionBean.setDataSize(downloadElement.getDataTotalSize());
         sessionBean.setFinalLink(downloadElement.getFinalLink());
         sessionBean.setFileName(downloadElement.getFileName());
+        sessionBean.setTimestamp(Timestamp.from(Instant.now()));
         beans.add(sessionBean);
+//        System.out.println("list beans in create: " + beans);
     }
 
-    public boolean isStateFile() {
-        return Files.exists(Path.of(STATE_FILE));
-    }
-
-    public DownloadElement getLatestDownload() {
-        DownloadElement element = null;
-        Path stateFile = Path.of(STATE_FILE);
-        if (isStateFile()) {
-            restoreState(stateFile, SessionBean.class);
-            if (!beans.isEmpty()) {
-                element = new DownloadElement();
-                SessionBean csvBean = (SessionBean) beans.get(0);
-                element.setFinalLink(csvBean.getFinalLink());
-                element.setResume(csvBean.isResume());
-                element.setFileName(csvBean.getFileName());
-                element.setDataOffset(csvBean.getDataOffset());
-                element.setCaptchaRequestUrl(csvBean.getCaptchaRequestUrl());
+    /*
+     * Search for bean with the same captcha link as download element, if such bean
+     * is found it's removed from the list and returned.
+     * Otherwise, returns null.
+     * */
+    private SessionBean containsBeanWith(DownloadElement downloadElement) {
+        String captchaRequestUrl = downloadElement.getCaptchaRequestUrl();
+        int i = 0;
+        for (CsvBean sb : beans) {
+            if (((SessionBean) sb).getCaptchaRequestUrl().equals(captchaRequestUrl)) {
+                System.out.println("[ csv_service ] found existing element: " + captchaRequestUrl);
+                return (SessionBean) beans.remove(i);
             }
+            i++;
         }
-        return element;
+        System.out.println("[ csv_service ] insert new element");
+        return null;
+    }
+
+    /*
+     * Check if state file exist, if so return true, otherwise return false
+     * */
+    public boolean isStateFile() {
+        return Files.exists(stateFilePath);
+    }
+
+    /*
+     * Load state list from a file
+     * */
+    public List<DownloadElement> getStateList() {
+        List<DownloadElement> list = new ArrayList<>();
+        for (CsvBean bean : beans) {
+            list.add(parseBeanToDownloadElement((SessionBean) bean));
+        }
+
+        return list;
+//        if (isStateFile()) {
+//            System.out.println("[ latest_state ] loading...");
+//            restoreState(stateFilePath, SessionBean.class);
+//            if (!beans.isEmpty()) {
+//                for (CsvBean bean : beans) {
+//                    list.add(parseBeanToDownloadElement((SessionBean) bean));
+//                }
+//            }
+//        }
+//        return list;
+    }
+
+    /*
+     * Get the latest element of state list, returns null if list is empty
+     * */
+    public DownloadElement getLatestDownload() {
+        List<DownloadElement> stateList = getStateList();
+        if (!stateList.isEmpty()) return stateList.get(stateList.size() - 1);
+        return null;
+    }
+
+    /*
+     * Parse state bean to DownloadElement object
+     * */
+    DownloadElement parseBeanToDownloadElement(SessionBean csvBean) {
+        DownloadElement downloadElement = new DownloadElement();
+        downloadElement.setFinalLink(csvBean.getFinalLink());
+        downloadElement.setResume(csvBean.isResume());
+        downloadElement.setFileName(csvBean.getFileName());
+        downloadElement.setDataOffset(csvBean.getDataOffset());
+        downloadElement.setDataTotalSize(csvBean.getDataSize());
+        downloadElement.setCaptchaRequestUrl(csvBean.getCaptchaRequestUrl());
+        downloadElement.setTimestamp(csvBean.getTimestamp());
+        return downloadElement;
     }
 
     public static void main(String[] args) throws IOException {
@@ -121,15 +202,16 @@ public class CsvService {
         DownloadElement downloadElement = new DownloadElement();
         downloadElement.setResume(true);
         downloadElement.setDataOffset(2096810);
-        downloadElement.setFileName("Roni Size - Reprazent New Forms 2.rar");
-        downloadElement.setCaptchaRequestUrl("https://ulozto.net/download-dialog/free/download?fileSlug=lXCHnL50f1pA");
+        downloadElement.setFileName("dubel Roni Size - Reprazent New Forms 2 .rar");
+        downloadElement.setCaptchaRequestUrl("2https://ulozto.net/download-dialog/free/download?fileSlug=lXCHnL50f1pA");
         downloadElement.setFinalLink("https://download.uloz.to/Ps;Hs;up=0;cid=285193758;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=pyfQcbR;fs=lXCHnL50f1pA;hid=9ZBoYgR;rid=400232830;tm=1662480426;ut=f;rs=0;fet=download_free;He;ch=acab65706281d0a8985df82c762bc188;Pe/file/lXCHnL50f1pA/roni-size-reprazent-new-forms-2-rar?bD&c=285193758&De");
-        CsvService csvService = new CsvService();
-        csvService.createCsvObject(downloadElement);
 
-        csvService.saveState(path);
-        System.out.println(Files.exists(path));
-        csvService.restoreState(path, SessionBean.class);
+        CsvService csvService = new CsvService();
+        csvService.initDirectory();
+//        csvService.createCsvObject(downloadElement);
+//        csvService.restoreState(path, SessionBean.class);
+        csvService.saveState(downloadElement);
+
 
     }
 }

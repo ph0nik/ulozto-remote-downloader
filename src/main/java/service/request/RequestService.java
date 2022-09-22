@@ -20,7 +20,7 @@ public class RequestService {
     * Sends GET request and returns html page with code 200, direct download link for code 302,
     * and empty string for any other code.
     * */
-    public static CustomResponse sendRequestWithOkHttp(String url) throws IOException {
+    public static CustomResponse sendGetWithOkHttp(String url) throws IOException {
         OkHttpClient client = new OkHttpClient().newBuilder()
                 .cookieJar(jar)
                 .followRedirects(false)
@@ -32,7 +32,6 @@ public class RequestService {
                 .build();
         CustomResponse customResponse = new CustomResponse();
         try (Response response = client.newCall(request).execute()) {
-            // TODO save cookies from response?
             Headers responseHeaders = response.headers();
 //            System.out.println(responseHeaders);
             // set status and message of response
@@ -90,9 +89,17 @@ public class RequestService {
             Headers responseHeaders = response.headers();
             // location name in the response header has link
             for (String name : responseHeaders.names()) {
-                if (name.equalsIgnoreCase("location")) fileLink = responseHeaders.get(name);
-                System.out.println("[ post_request ] file link found: " + fileLink);
+                if (name.equalsIgnoreCase("location")) {
+                    fileLink = responseHeaders.get(name);
+                    System.out.println("[ post_request ] file link found: " + fileLink);
+                }
             }
+            downloadElement.setFinalLink(fileLink);
+            if (downloadElement.getFinalLink().equals(downloadElement.getCaptchaRequestUrl())) {
+                downloadElement.setStatusMessage("Invalid final link");
+                downloadElement.setStatusCode(418);
+            }
+
             /*
              * For codes other than 200 (201 for example), there's location parameter in the header,
              * that points to a file.
@@ -105,7 +112,7 @@ public class RequestService {
                 }
             }
         }
-        downloadElement.setFinalLink(fileLink);
+//        downloadElement.setFinalLink(fileLink);
         return downloadElement;
     }
 

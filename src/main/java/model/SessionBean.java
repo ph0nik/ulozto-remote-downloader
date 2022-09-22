@@ -2,6 +2,8 @@ package model;
 
 import com.opencsv.bean.CsvBindByName;
 
+import java.sql.Timestamp;
+
 public class SessionBean extends CsvBean {
 
     @CsvBindByName
@@ -21,6 +23,17 @@ public class SessionBean extends CsvBean {
 
     @CsvBindByName
     private boolean resume;
+
+    @CsvBindByName
+    private Timestamp timestamp;
+
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Timestamp timestamp) {
+        this.timestamp = timestamp;
+    }
 
     public long getDataSize() {
         return dataSize;
@@ -79,6 +92,8 @@ public class SessionBean extends CsvBean {
                 ", dataOffset=" + dataOffset +
                 ", dataSize=" + dataSize +
                 ", resume=" + resume +
+                ", timestamp=" + timestamp +
                 '}';
     }
+
 }

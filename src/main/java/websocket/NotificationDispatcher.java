@@ -17,6 +17,8 @@ public class NotificationDispatcher {
 
     private final SimpMessagingTemplate template;
 
+    // add local status, update it with every dispatch, and send as soon as someone connects to controller
+
     private Set<String> listeners = new HashSet<>();
 
     public NotificationDispatcher(SimpMessagingTemplate template) {

@@ -5,3 +5,9 @@
 .large {
     font-size: 2em;
 }
+
+audio {
+  width: 200px;
+  border-radius: 5px;
+  transform: scale(1);
+}

@@ -4,11 +4,11 @@ import model.CaptchaRequestDto;
 import model.CaptchaResponseDto;
 import model.DownloadElement;
 import model.RequestElementForm;
-import org.jsoup.HttpStatusException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import service.download.ElementDownloadDetailsService;
+import service.download.ExpiredLinkException;
 import service.download.FileDownloadService;
 
 import java.io.IOException;
@@ -31,19 +31,12 @@ public class UluzToRestController {
     * Controller made for test purposes only
     * */
     @PostMapping("/")
-    public CaptchaRequestDto getPageLink(@RequestParam("page") String page) throws IOException {
+    public CaptchaRequestDto getPageLink(@RequestParam("page") String page) throws ExpiredLinkException {
 //        downloadInfo = new RequestElementForm();
-        try {
+
             downloadElement = elementDownloadDetailsService.getDownloadInfo(new DownloadElement(), page);
 //            tempCookies = elementDownloadDetailsService.getCookieStore();
-        } catch (HttpStatusException e) {
-            // catch error http response while jsoup calls
-            downloadElement.setStatusCode(e.getStatusCode());
-            downloadElement.setStatusMessage(e.getMessage());
-        } catch (IOException e) {
-            downloadElement.setStatusMessage(e.getMessage());
-            System.out.println(e.getMessage());
-        }
+
         CaptchaRequestDto captchaDto = elementDownloadDetailsService.getCaptchaDto(downloadElement);
         if (downloadElement.getFinalLink() != null && !downloadElement.getFinalLink().isEmpty()) {
             fileDownloadService.generalDownload(downloadElement);
