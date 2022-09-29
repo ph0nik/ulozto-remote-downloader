@@ -7,6 +7,15 @@ public class DispatchStatus {
     private String folderName;
     private Long totalBytes;
     private Double length;
+    private Double transferRate;
+
+    public Double getTransferRate() {
+        return transferRate;
+    }
+
+    public void setTransferRate(Double transferRate) {
+        this.transferRate = transferRate;
+    }
 
     public String getFolderName() {
         return folderName;
@@ -55,12 +64,13 @@ public class DispatchStatus {
 
     @Override
     public String toString() {
-        return "DownloadStatus{" +
+        return "DispatchStatus{" +
                 "fileSource='" + fileSource + '\'' +
                 ", fileName='" + fileName + '\'' +
                 ", folderName='" + folderName + '\'' +
                 ", totalBytes=" + totalBytes +
                 ", length=" + length +
+                ", trasnferRate=" + transferRate +
                 '}';
     }
 }

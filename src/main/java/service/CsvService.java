@@ -23,6 +23,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 
 @Service
@@ -38,7 +39,7 @@ public class CsvService {
     private List<CsvBean> beans;
 
     public CsvService() {
-        this.beans = new ArrayList<>();
+        this.beans = new LinkedList<>();
         this.stateFilePath = Path.of(DIR).resolve(Path.of(STATE_FILE));
     }
 
@@ -60,7 +61,6 @@ public class CsvService {
             beans = restoreState(stateFilePath, SessionBean.class);
             beans.sort(Comparator.comparing(o -> ((SessionBean) o).getTimestamp()));
             System.out.println("[ init_csv ] state file loaded [OK]");
-            System.out.println(beans);
         } else {
             System.out.println("[ init_csv ] no state file found");
         }
@@ -107,24 +107,23 @@ public class CsvService {
     private void createCsvObject(DownloadElement downloadElement) {
         // check if element exists, update existing
         if (beans.size() == MAX_LIST_SIZE) beans.remove(0);
-        SessionBean existingBean = containsBeanWith(downloadElement);
-        SessionBean sessionBean = (existingBean != null) ? existingBean : new SessionBean();
-//        SessionBean sessionBean = new SessionBean();
+        SessionBean sessionBean = containsBeanWith(downloadElement);
         sessionBean.setCaptchaRequestUrl(downloadElement.getCaptchaRequestUrl());
         sessionBean.setResume(downloadElement.isResume());
         sessionBean.setDataOffset(downloadElement.getDataOffset());
         sessionBean.setDataSize(downloadElement.getDataTotalSize());
         sessionBean.setFinalLink(downloadElement.getFinalLink());
         sessionBean.setFileName(downloadElement.getFileName());
-        sessionBean.setTimestamp(Timestamp.from(Instant.now()));
+        Timestamp timestamp = downloadElement.getTimestamp();
+        if (timestamp == null) timestamp = Timestamp.from(Instant.now());
+        sessionBean.setTimestamp(timestamp);
         beans.add(sessionBean);
-//        System.out.println("list beans in create: " + beans);
     }
 
     /*
      * Search for bean with the same captcha link as download element, if such bean
      * is found it's removed from the list and returned.
-     * Otherwise, returns null.
+     * Otherwise, returns empty bean.
      * */
     private SessionBean containsBeanWith(DownloadElement downloadElement) {
         String captchaRequestUrl = downloadElement.getCaptchaRequestUrl();
@@ -137,7 +136,20 @@ public class CsvService {
             i++;
         }
         System.out.println("[ csv_service ] insert new element");
-        return null;
+        return new SessionBean();
+    }
+
+    public List<DownloadElement> removeFinishedElements() {
+        System.out.println("[ csv_clear ] Removing finished elements...");
+        beans.removeIf(bean -> !((SessionBean) bean).isResume());
+        saveState(stateFilePath);
+        return getStateList();
+    }
+
+    public List<DownloadElement> removeSelectedElement(int i) {
+        beans.remove(i);
+        saveState(stateFilePath);
+        return getStateList();
     }
 
     /*
@@ -155,18 +167,7 @@ public class CsvService {
         for (CsvBean bean : beans) {
             list.add(parseBeanToDownloadElement((SessionBean) bean));
         }
-
         return list;
-//        if (isStateFile()) {
-//            System.out.println("[ latest_state ] loading...");
-//            restoreState(stateFilePath, SessionBean.class);
-//            if (!beans.isEmpty()) {
-//                for (CsvBean bean : beans) {
-//                    list.add(parseBeanToDownloadElement((SessionBean) bean));
-//                }
-//            }
-//        }
-//        return list;
     }
 
     /*

@@ -36,38 +36,33 @@ public class UluzToController {
     @Autowired
     CustomEventPublisher customEventPublisher;
 
-//    private DownloadStatusDto downloadStatusDto;
-
     private DownloadElement downloadElement;
 
     private List<DownloadElement> downloadElementList;
 
     private Future<DownloadElement> future;
 
-    private Boolean resumable = false;
+//    private Boolean resumable = false;
 
     private Boolean nowDownloading = false;
     private Boolean downloadHistory = true;
     private Boolean insertLink = true;
+    private Boolean downloadFinished = false;
 
     @ModelAttribute("download_finished")
     public Boolean elementDownloadFinished() {
-        if (downloadElement != null) return downloadElement.getDataTotalSize() - downloadElement.getDataOffset() == 0;
-        return true;
+        return downloadFinished;
     }
 
     @ModelAttribute("elements_history")
     public List<DownloadElement> loadDownloadHistory() {
         if (csvService != null) {
-            return downloadElementList = csvService.getStateList();
+            downloadElementList = csvService.getStateList();
+            return fileDownloadService.isPathValid(downloadElementList);
         }
         return List.of(new DownloadElement());
     }
 
-    @ModelAttribute("resume")
-    public Boolean getResumeStatus() {
-        return resumable;
-    }
 
     @ModelAttribute("future_status")
     public Boolean futureStatus() {
@@ -121,21 +116,38 @@ public class UluzToController {
     public String resumeCurrent(@PathVariable("id") int id, Model model) {
         System.out.println("[ controller_resume ] id: " + id);
         System.out.println("[ controller_resume ] " + downloadElementList.get(id));
-        downloadElement = elementDownloadDetailsService.resumeDownloadInfo(downloadElementList.get(id));
-        return "redirect:/ulozto/download";
+//        downloadElement = elementDownloadDetailsService.resumeDownloadInfo(downloadElementList.get(id));
+        downloadElement = downloadElementList.get(id);
+        if (elementDownloadDetailsService.isValidDownload(downloadElement)) {
+            return "redirect:/ulozto/download";
+        } else {
+            downloadElement.setStatusMessage("Link expired");
+            return "redirect:/ulozto/";
+        }
+    }
+
+    @GetMapping("/delete_element/{id}")
+    public String deleteElement(@PathVariable("id") int id, Model model) {
+        System.out.println("[ controller_delete ] id: " + id);
+        System.out.println("[ controller_delete ] " + downloadElementList.get(id));
+        downloadElementList = csvService.removeSelectedElement(id);
+        return "redirect:/ulozto/";
     }
 
 
+    // TODO in case of download error probe some service if network is up, when is up try resume
     @GetMapping("/download")
     public String getDownloadPage(Model model) {
         if (downloadElement.getFinalLink() != null && !downloadElement.getFinalLink().isEmpty()) {
             if (elementDownloadDetailsService.hasProperLocation(downloadElement)) {
+                System.out.println(downloadElement);
                 future = fileDownloadService.generalDownload(downloadElement);
-                insertLink = downloadHistory = false;
+                insertLink = downloadHistory = downloadFinished = false;
                 nowDownloading = true;
                 model.addAttribute("showInsertLink", insertLink);
                 model.addAttribute("showNowDownloading", nowDownloading);
                 model.addAttribute("showDownloadHistory", downloadHistory);
+                model.addAttribute("download_finished", downloadFinished);
             } else {
                 downloadElement = elementDownloadDetailsService.setErrorMessage(downloadElement);
                 model.addAttribute("download_element", downloadElement);
@@ -206,6 +218,10 @@ public class UluzToController {
         return "redirect:/ulozto/";
     }
 
-
+    @GetMapping("/clear_history")
+    public String clearHistory(Model model) {
+        downloadElementList = csvService.removeFinishedElements();
+        return "redirect:/ulozto/";
+    }
 
 }

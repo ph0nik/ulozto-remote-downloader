@@ -13,8 +13,17 @@ public class DownloadElement {
     private boolean resume;
     private int statusCode;
     private String statusMessage;
-
     private Timestamp timestamp;
+
+    private boolean validPath;
+
+    public boolean isValidPath() {
+        return validPath;
+    }
+
+    public void setValidPath(boolean validPath) {
+        this.validPath = validPath;
+    }
 
     public Timestamp getTimestamp() {
         return timestamp;
@@ -117,6 +126,7 @@ public class DownloadElement {
                 ", statusCode=" + statusCode +
                 ", statusMessage='" + statusMessage + '\'' +
                 ", timestamp=" + timestamp +
+                ", validPath=" + validPath +
                 '}';
     }
 }

@@ -8,7 +8,7 @@ function printResponse(response) {
     let fileName = document.getElementById('file_name');
     let fileSource = document.getElementById('file_source');
     let progress = document.getElementById('progress-text');
-    let percentage = document.getElementById("progress");
+    let percentage = document.getElementById('progress');
     let history = document.getElementById('downloadHistory');
     let cancelButton = document.getElementById('currentDownloadCancel');
     let finishButton = document.getElementById('currentDownloadDone');
@@ -16,24 +16,19 @@ function printResponse(response) {
     fileName.textContent = responseObj.fileName;
     fileSource.textContent = responseObj.fileSource;
     let percentageValue = getPercentage(responseObj.totalBytes, responseObj.length);
+    let transferRate = formatTransferRate(responseObj.transferRate);
     if (percentageValue == 100) {
         // change resume and cancel to hidden and finished to visible
         finishButton.removeAttribute('hidden');
-        cancelButton.setAttribute('hidden');
-//        finishButton.style.visibility = 'visible';
-//        cancelButton.style.visibility = 'hidden';
+        cancelButton.remove();
+        percentage.setAttribute("class", "progress-bar bg-success");
     }
-    progress.textContent = responseObj.totalBytes + ' / ' + responseObj.length + ' bytes [ ' + percentageValue + '% ]';
+    progress.textContent = responseObj.totalBytes + ' / ' + responseObj.length + ' bytes [ ' + percentageValue + '% ] | ' + transferRate;
 
     percentage.innerHTML = percentageValue + "%";
     percentage.setAttribute("style","width: " + percentageValue + "%");
     percentage.setAttribute("aria-valuenow", percentageValue);
 
-//    if (responseObj.enabled === false) {
-//        let spinnerUpdated = document.getElementById("spinner").className + " visually-hidden";
-//        spinner.setAttribute("class", spinnerUpdated);
-//        currentFile.setAttribute("class", "text-success");
-//    }
 }
 
 // calculate percentage value
@@ -45,15 +40,19 @@ function getPercentage(current, total) {
        }
 }
 
+function formatTransferRate(value) {
+    if (value.toString().length >= 4) {
+        return (value * 0.0009765625).toFixed(1) + ' MB/s';
+    }
+    return value + ' kB/s';
+}
+
     // connect and subscribe to message broker at given address
 function connect() {
-//    const socket = new SockJS("http://localhost:" + port + "/notifications");
     const socket = new SockJS("/notifications");
     stompClient = Stomp.over(socket);
     stompClient.connect({}, function () {
         stompClient.subscribe("/user/notification/item", function (response) {
-//            console.log(' Got ' + response);
-//            mess = response;
             printResponse(response);
         });
         console.info("connected!")
@@ -69,25 +68,10 @@ function disconnect() {
     }
 }
 
-// calculate percentage value
-function getPercentage(current, total) {
-       if (current > 0 && total > 0) {
-            return Math.round((current / total) * 100);
-       } else {
-            return 100;
-       }
-}
-
 // register client
 function start() {
     if (stompClient) {
         stompClient.send("/swns/start", {});
-    }
-}
-
-function runAuto(message) {
-    if (stompClient) {
-        stompClient.send("/swns/runauto", {message});
     }
 }
 
@@ -100,7 +84,9 @@ function stop() {
 
 function connectAndReceive() {
     connect();
-    setTimeout(() => {start();}, 1000);
+    setTimeout(() => {
+        start();
+    }, 1000);
 }
 
 function stopAndDisconnect() {

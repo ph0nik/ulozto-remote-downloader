@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import service.request.RequestService;
 
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,9 +29,7 @@ public class ElementDownloadDetailsService {
     private final static String ULUZ_CAPTCHA_RELOAD = "https://ulozto.net/reloadXapca.php?rnd=";
     private final static String ERROR_CAPTCHA_GET = "User authentication required. We noticed too many download requests from your IP. Confirm that you are not a robot.";
 
-    public ElementDownloadDetailsService() {
-
-    }
+    public ElementDownloadDetailsService() {}
 
     public DownloadElement getDownloadInfo(DownloadElement downloadElement, String downloadFileSlugUrl) {
         try {
@@ -57,17 +57,13 @@ public class ElementDownloadDetailsService {
         return getDownloadInfo(downloadElement, null);
     }
 
-    //    public RequestElementForm getDownloadInfo(String url) throws IOException, InterruptedException {
-//        RequestElementForm requestElementForm = new RequestElementForm();
-//        String captchaUrl = createUrlToGetCaptcha(fileIdResolver(url));
-//        requestElementForm.setFileName(getFileNameFromUrl(url));
-//        requestElementForm.setCaptchaRequestUrl(captchaUrl);
-//        // wait between get requests
-//        Thread.sleep(500);
-//
-//        requestElementForm = sendRequestForCaptcha(requestElementForm);
-//        return requestElementForm;
-//    }
+    public boolean isValidDownload(DownloadElement downloadElement) {
+        long downloadTime = downloadElement.getTimestamp().getTime();
+        long currentTime = Timestamp.from(Instant.now()).getTime();
+        long deltaHours = (currentTime - downloadTime) / 1000 / 60 / 60;
+        return (deltaHours < 12);
+    }
+
     /*
     * Sends request for a captcha code, if server returns direct response input object is going
     * to be updated with new values, if server returns redirect object is going to be
@@ -78,7 +74,7 @@ public class ElementDownloadDetailsService {
         CustomResponse response = RequestService.sendGetWithOkHttp(downloadElement.getCaptchaRequestUrl());
         // print status code to console
         System.out.println("[ captcha_request ] response: " + response.getStatusCode());
-        downloadElement.setStatusCode(response.getStatusCode());
+//        downloadElement.setStatusCode(response.getStatusCode());
         downloadElement.setStatusMessage(response.getStatusMessage());
         // if request returnss 200 then process dto object if 3xx download file, if else show error
         if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
@@ -86,40 +82,28 @@ public class ElementDownloadDetailsService {
             if (!formMap.isEmpty()) {
                 System.out.println("[ captcha_request ] filling form...");
                 downloadElement.setRequestElementForm(getWebFormFromMap(formMap));
+                downloadElement.setFinalLink("");
+                downloadElement.setStatusCode(200);
             } else {
                 System.out.println("[ captcha_request ] empty form map");
                 downloadElement.setStatusMessage(getErrorMessage(response.getResponseBody()));
+                downloadElement.setStatusCode(400);
             }
         }
         if (response.getStatusCode() >= 300 && response.getStatusCode() < 400) {
             System.out.println("[ captcha_request ] link obtained without captcha");
+            downloadElement.setStatusCode(200);
 //                String limitExceed = "limit-exceeded";
+//            if (response.getResponseLink().contains("ulozto.net.timeout")) {
+//
+//            }
             downloadElement.setFinalLink(response.getResponseLink());
+        }
+        if (response.getStatusCode() >= 400) {
+            downloadElement.setStatusCode(response.getStatusCode());
         }
         return downloadElement;
     }
-
-//    private RequestElementForm sendRequestForCaptcha(RequestElementForm requestElementForm) throws IOException {
-//        // get custom response object with data
-//        CustomResponse responseString = sendRequestWithOkHttp(requestElementForm.getCaptchaRequestUrl());
-//        // print status code to console
-//        System.out.println("[ captcha request response ] " + responseString.getStatusCode());
-//
-//        requestElementForm.setStatusCode(responseString.getStatusCode());
-//        requestElementForm.setStatusMessage(responseString.getStatusMessage());
-//        // if request returnss 200 then process dto object if 3xx download file, if else show error
-//        if (responseString.getStatusCode() >= 200 && responseString.getStatusCode() < 300) {
-//            HashMap<String, String> formMap = getFormMap(responseString.getResponseBody());
-//            requestElementForm = (!formMap.isEmpty())
-//                    ? getWebFormFromMap(requestElementForm, formMap)
-//                    : getErrorMessage(requestElementForm, responseString.getResponseBody());
-//        }
-//        if (responseString.getStatusCode() >= 300 && responseString.getStatusCode() < 400) {
-//            String limitExceed = "limit-exceeded";
-//            requestElementForm.setFinalLink(responseString.getResponseLink());
-//        }
-//        return requestElementForm;
-//    }
 
     /*
      * Check if final link is proper file link or is it error notification
@@ -208,23 +192,6 @@ public class ElementDownloadDetailsService {
         }
         return "";
     }
-
-
-
-    /*
-     * Send request
-     * */
-//    CustomResponse sendRequestWithOkHttp(String url) throws IOException {
-//        CustomResponse response = RequestService.sendGetWithOkHttp(url);
-//        return response;
-//    }
-
-    /*
-     * Send POST request and retrieve download link
-     * */
-//    public RequestElementForm sendPostWithOkHttp(RequestElementForm requestElementForm) throws IOException {
-//        return RequestService.sendPostWithOkHttp(requestElementForm);
-//    }
 
     public DownloadElement sendPostWithOkHttp(DownloadElement downloadElement) throws IOException {
         return RequestService.sendPostWithOkHttp(downloadElement);

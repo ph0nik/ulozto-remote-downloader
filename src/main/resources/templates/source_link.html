@@ -10,8 +10,8 @@
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
     <!--    <link href="../static/css/all.css" rel="stylesheet">-->
     <link th:href="@{/css/all.css}" rel="stylesheet"/>
-    <!--    <link href="../static/style.css" rel="stylesheet">-->
-    <link th:href="@{/style.css}" rel="stylesheet"/>
+    <!--        <link href="../static/style.css" rel="stylesheet">-->
+    <!--    <link th:href="@{/style.css}" rel="stylesheet"/>-->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script type="text/javascript" th:src="@{/js/sockjs.js}"></script>
@@ -24,7 +24,7 @@
 </div>
 <div class="row">
     <!-- input link -->
-    <div th:hidden="${!showInsertLink}">
+    <div th:hidden="${!showInsertLink}" class="row mb-5">
         <!-- when downloader is not working -->
         <form action="#"
               th:action="@{/ulozto/get_link/page={page} (page=${page})}"
@@ -40,32 +40,10 @@
                 </label>
                 <input class="form-control form-control-sm" type="text" id="send_link" value="" name="page"
                        placeholder="https://...">
-
                 <button type="submit" class="btn btn-primary">send link</button>
             </div>
-
-            <!--            <div class="row my-2">-->
-            <!--                <label for="send_link" class="col-1 col-form-label col-form-label">-->
-            <!--                    <i class="bi bi-link-45deg form-control-sm border-0 fs-5"></i>-->
-            <!--                </label>-->
-            <!--                <div class="input-group input-group-sm col-sm-10">-->
-            <!--                    <input type="text" class="form-control form-control-sm" id="send_link" placeholder="https://...">-->
-            <!--                    <button type="submit" class="btn btn-primary">send link</button>-->
-            <!--                </div>-->
-            <!--            </div>-->
-
         </form>
     </div>
-    <!-- resume button, hidden if resume is false -->
-    <!--    <div th:hidden="${!resume}">resume-->
-    <!--        <form class="form-control"-->
-    <!--              action="#"-->
-    <!--              th:action="@{/ulozto/resume_download/}"-->
-    <!--              method="get">-->
-    <!--            <button type="submit" class="btn btn-primary">resume</button>-->
-    <!--        </form>-->
-    <!--    </div>-->
-    <!-- download status, hidden if download thread is inactive  -->
 
     <!--now downloading title-->
     <div th:hidden="${!showNowDownloading}" id="currentDownloadSession">
@@ -75,19 +53,6 @@
             </div>
         </div>
         <div class="row align-items-center justify-content-start">
-            <!--resume button-->
-            <!--            <div th:hidden="${!resume}" id="currentDownloadResume" class="col-2">-->
-            <!--                <form action="#"-->
-            <!--                      th:action="@{/ulozto/resume_download/}"-->
-            <!--                      method="get">-->
-            <!--                    <button type="submit" class="btn btn-none btn-lg col-12 text-primary fs-6">-->
-            <!--                        <i class="bi bi-arrow-clockwise"></i>-->
-            <!--                        <span>resume</span>-->
-            <!--                    </button>-->
-            <!--                </form>-->
-            <!--            </div>-->
-            <!--            &lt;!&ndash;cancel button&ndash;&gt;-->
-            <!--            <div th:hidden="${resume}" id="currentDownloadCancel" class="col-2">-->
             <div th:hidden="${download_finished}" id="currentDownloadCancel" class="col-2">
                 <form action="#"
                       th:action="@{/ulozto/cancel_current/}"
@@ -117,7 +82,6 @@
                         <b>link:</b>
                     </div>
                     <div class="col-11 text-break" id="file_source">
-                        <!--                        https://content-provider33.uloz.to/Ps;Hs;up=1;uid=13277886;cid=191017267;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=GxjyLK5;fs=84KCH9uJM;hid=oA3E1SK;rid=496042806;tm=1663394615;ut=f;rs=0;fet=download_free;He;ch=cd32c41466ba0a985f9085d568f70334;Pe/file/84KCH9uJM/tales-from-the-crypt-1972-titulky-sk-1080p-bluray-x264-dts-mkv?bD&u=13277886&c=191017267&De-->
                     </div>
                 </div>
                 <div class="row small">
@@ -125,7 +89,6 @@
                         <b>progress:</b>
                     </div>
                     <div class="col-11" id="progress-text">
-                        <!--                        50 / 100 MB (50%)-->
                     </div>
                 </div>
             </div>
@@ -146,15 +109,22 @@
     <!-- last download file -->
     <!--    <div th:hidden="${!future_status}" class="border-bottom border-dark">-->
     <div th:hidden="${!showDownloadHistory}" id="downloadHistory" class="border-bottom border-dark">
-        <div class="row bg-light">
-            <div class="col">
+        <div class="row bg-light justify-content-between">
+            <div class="col-2">
                 <b>Download history</b>
+            </div>
+            <div class="col-2 text-end">
+                <a href="#"
+                   th:href="@{/ulozto/clear_history/}"
+                   class="link-secondary">
+                    <i class="bi bi-trash3"></i>clear history</a>
             </div>
         </div>
         <div th:each="elem, iter : ${elements_history}">
             <div class="row align-items-center mb-2 justify-content-start border-bottom">
                 <!--resume button-->
-                <div th:hidden="${!elem.resume}" class="col-2">
+<!--                <div th:hidden="${!elem.resume} and ${elem.validPath}" class="col-2">-->
+                    <div th:if="${elem.resume and elem.validPath}" class="col-2">
                     <!--                    <span th:text="${index.index}"></span>-->
                     <form action="#"
                           th:action="@{/ulozto/resume_download/{id}(id=${iter.index})}"
@@ -166,9 +136,21 @@
                     </form>
                 </div>
                 <!--finished-->
-                <div th:hidden="${elem.resume}" class="col-2 text-center text-success fs-6">
+                <div th:if="${!elem.resume and elem.validPath}" class="col-2 text-center text-success fs-6">
                     <i class="bi bi-check-lg"></i>
                     <span>done!</span>
+                </div>
+
+                <!-- delete -->
+                <div th:if="${not elem.validPath}" class="col-2">
+                    <form action="#"
+                          th:action="@{/ulozto/delete_element/{id}(id=${iter.index})}"
+                          method="get">
+                        <button type="submit" class="btn btn-none btn-sm col-12 text-danger fs-6">
+                            <i class="bi bi-x-circle"></i>
+                            <span>delete</span>
+                        </button>
+                    </form>
                 </div>
                 <!--file info-->
                 <div class="col-10">
@@ -178,7 +160,12 @@
                         </div>
                         <div class="col-auto">
                             <span th:text="${elem.fileName}"></span>
-<!--                                                        some name.mkv-->
+                            <!--                                                        some name.mkv-->
+                        </div>
+                        <div class="col-auto">
+                            <div th:if="${not elem.validPath}">
+                                <span class="text-danger">[ invalid path ]</span>
+                            </div>
                         </div>
                     </div>
                     <div class="row small">
@@ -194,7 +181,8 @@
                             <b>last changed:</b>
                         </div>
                         <div class="col-auto">
-                            <span th:text="${elem.getTimestamp()}"></span>
+<!--                            <span th:text="${elem.getTimestamp()}"></span>-->
+                            <span th:text="${#calendars.format(elem.getTimestamp(),'dd MMMM yyyy, HH:mm:ss')}">2022-09-23 23:49:38.7634883</span>
                         </div>
                     </div>
                     <div class="row small">
@@ -210,8 +198,15 @@
         </div>
     </div>
     <!-- temporarily show set folder -->
-    <div class="col">
-        <span th:text="${download_folder}"></span>
+    <div class="row align-items-center">
+        <div class="col-auto fs-5">
+            <i class="bi bi-folder-check"></i>
+        </div>
+        <div class="col-auto text-secondary fs-6">
+                    <span th:text="${download_folder}" class="">
+            c:\asdasd\asdasd\asdasd
+        </span>
+        </div>
     </div>
 </div>
 

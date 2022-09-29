@@ -44,11 +44,7 @@ public class RequestService {
             if (response.isSuccessful()) {
                 ResponseBody responseBody = response.body();
                 if (responseBody != null) customResponse.setResponseBody(responseBody.string());
-            }
-            // TODO get location for this code
-            // create dto for both type of data
-            else if (response.isRedirect()) {
-                customResponse.setResponseLink(responseHeaders.get("location"));
+                if (response.isRedirect()) customResponse.setResponseLink(responseHeaders.get("location"));
             } else {
                 customResponse.setStatusCode(response.code());
                 customResponse.setStatusMessage(response.message());

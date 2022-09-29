@@ -17,7 +17,6 @@ public class UloztoRemoteDownloaderApplication {
 	*
 	* */
 
-	// TODO add server and websocket ports as program parameters
 	/*
 	* Check if argument is provided
 	* */

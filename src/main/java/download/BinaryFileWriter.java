@@ -1,6 +1,7 @@
 package download;
 
 import service.download.FileDownloadService;
+import util.BytesCounter;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -30,11 +31,14 @@ public class BinaryFileWriter implements AutoCloseable {
         try (BufferedInputStream input = new BufferedInputStream(inputStream)) {
             byte[] dataBuffer = new byte[CHUNK_SIZE];
             int readBytes;
+            BytesCounter bytesCounter = new BytesCounter();
 //            while ((readBytes = input.read(dataBuffer)) != -1 || Thread.currentThread().isInterrupted()) {
             while ((readBytes = input.read(dataBuffer)) != -1) {
+                bytesCounter.setMark();
                 totalBytes += readBytes;
                 outputStream.write(dataBuffer, 0, readBytes);
-                progressCallback.onProgress(offset + totalBytes, offset + length);
+                // temporarily commented
+                progressCallback.onProgress(offset + totalBytes, offset + length, bytesCounter.getBitrate());
                 if (serviceNotifier.isCancel()) {
                     inputStream.close();
                 }

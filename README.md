@@ -23,21 +23,29 @@ This will produce jar file within docker folder.
 
 Where <download_path> is target folder for the downloads.
 
-Launch UI at:
+Launch user interface at:
 ```bash
   http://localhost:8081/ulozto/
 ```
 
-TODO 
+## Run as docker container
 
-compile with ...
+Create Dockerfile with following content:
+```bash
+FROM adoptopenjdk/openjdk11:jre-11.0.9.1_1-alpine@sha256:b6ab039066382d39cfc843914ef1fc624aa60e2a16ede433509ccadd6d995b1f
 
-run standalone jar with ...
+COPY ulozto-remote-downloader-1.0-SNAPSHOT.jar /app.jar
 
-information about parameters and config file
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+```
 
-build docker with
+Build container with following
+```bash
+docker build -t spring-boot-app:latest .
+```
 
-dockerfile
-
-run docker with
+Run container with following
+```bash
+docker run --rm -d -p 8081:8081 -v=<system_share>:/download --name ulozto-remote-downloader ulozto-remote-downloader --dpath=/download
+```
+Where <system_share> is local download path

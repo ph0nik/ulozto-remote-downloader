@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import service.CsvService;
 import service.RootFolderResolver;
 import service.events.CancelEvent;
-import service.request.RequestService;
+import util.ElementValidator;
 import websocket.NotificationDispatcher;
 import websocket.model.DispatchStatus;
 
@@ -25,6 +25,7 @@ import javax.annotation.PostConstruct;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Future;
 
@@ -43,6 +44,9 @@ public class FileDownloadService {
 
     @Autowired
     private CsvService csvService;
+
+    @Autowired
+    private ElementValidator elementValidator;
 
     private RequestElementForm currentDownloadStatus;
     private DownloadElement currentDownloadElement;
@@ -69,26 +73,11 @@ public class FileDownloadService {
         System.out.println("[ download_folder ] exist? " + rootFolderResolver.isFolderValid());
     }
 
-//    @Async
-//    public Future<RequestElementForm> generalDownload(RequestElementForm requestElementForm) {
-//        currentDownloadStatus = requestElementForm;
-//        Long totalBytes = 0L;
-////        downloadFolder = rootFolderResolver.getUserFolder();
-////        "R:\\Temp\\";
-//        try {
-//            totalBytes = downloadWithFolder(requestElementForm.getFileName(), downloadFolder, requestElementForm.getFinalLink(), requestElementForm.getDataOffset());
-//        } catch (IOException e) {
-//            System.out.println("future / general: " + e.getMessage());
-//        }
-//        currentDownloadStatus.setResume(Thread.currentThread().isInterrupted());
-//        currentDownloadStatus.setDataOffset(totalBytes);
-//        csvService.saveState(currentDownloadStatus);
-//        return new AsyncResult<>(requestElementForm);
-//    }
-
-    @Async()
+    @Async
     public Future<DownloadElement> generalDownload(DownloadElement downloadElement) {
         currentDownloadElement = downloadElement;
+        cancel = false;
+        resumeDispatch(downloadElement);
         Long totalBytes = 0L;
         try {
             totalBytes = downloadWithFolder(downloadElement.getFileName(), downloadFolder, downloadElement.getFinalLink(), downloadElement.getDataOffset());
@@ -97,28 +86,31 @@ public class FileDownloadService {
             currentDownloadElement.setStatusMessage(e.getMessage());
             System.out.println("[ general_download ] " + e.getMessage());
         }
+        currentDownloadElement.setResume(currentDownloadElement.getDataTotalSize() - totalBytes != 0);
         currentDownloadElement.setDataOffset(totalBytes);
         csvService.saveState(currentDownloadElement);
         return new AsyncResult<>(currentDownloadElement);
     }
-
-    // new downlaod - get captcha -> redirect -> link -> download
-    // resume download -> use existing redirect -> link -> download
-    // resume after shutdown -> captcha -> redirect -> link -> download
-    // abort -> wipe status
 
     public String getDownloadFolder() {
         if (downloadFolder != null) return downloadFolder;
         return "none";
     }
 
+    public List<DownloadElement> isPathValid(List<DownloadElement> downloadElements) {
+        for (DownloadElement elem : downloadElements) {
+            elem.setValidPath(elementValidator.isPathValid(elem, downloadFolder));
+        }
+        return downloadElements;
+    }
+
     /*
     * Prints download file progress in console, for every 500 bytes written
     * */
-    void printProgress(long current, double total, String fileName, String fileSource) {
+    void printProgress(long current, double total, double transferRate, String fileName, String fileSource) {
         if (counter == 500 || current == total) {
             printToConsole(current, total);
-            dispatchStatus(current, total, fileName, fileSource);
+            dispatchStatus(current, total, fileName, fileSource, transferRate);
             counter = 0;
         }
         counter++;
@@ -132,12 +124,24 @@ public class FileDownloadService {
         System.out.print(sb);
     }
 
-    private void dispatchStatus(long current, double total, String fileName, String fileSource) {
+    void resumeDispatch(DownloadElement downloadElement) {
+        if (downloadElement.isResume()) {
+            DispatchStatus dispatchStatus = new DispatchStatus();
+            dispatchStatus.setFileName(downloadElement.getFileName());
+            dispatchStatus.setFileSource(downloadElement.getFinalLink());
+            dispatchStatus.setLength((double) downloadElement.getDataTotalSize());
+            dispatchStatus.setTotalBytes(downloadElement.getDataOffset());
+            dispatcher.dispatch(dispatchStatus);
+        }
+    }
+
+    private void dispatchStatus(long current, double total, String fileName, String fileSource, double transferRate) {
         DispatchStatus status = new DispatchStatus();
         status.setTotalBytes(current);
         status.setLength(total);
         status.setFileName(fileName);
         status.setFileSource(fileSource);
+        status.setTransferRate(transferRate);
         dispatcher.dispatch(status);
     }
 
@@ -149,17 +153,17 @@ public class FileDownloadService {
     @EventListener
     public void handleCancelEvent(CancelEvent cancelEvent) {
         System.out.println("[ event_listener ] canceling...");
-        currentDownloadElement.setResume(true);
+//        currentDownloadElement.setResume(true);
         cancel = true;
 
     }
 
     public Long downloadWithOkhttp(String fileName, String url, long downloadOffset)  {
         long downloadedBytes = 0;
-        ProgressCallback progressCallback = (x, y) -> printProgress(x, y, fileName, url);
+        ProgressCallback progressCallback = (x, y, z) -> printProgress(x, y, z, fileName, url);
         // build client
         OkHttpClient client = new OkHttpClient().newBuilder()
-                .cookieJar(RequestService.getCookieJar())
+//                .cookieJar(RequestService.getCookieJar())
                 .followRedirects(true)
                 .build();
         // build request
@@ -179,15 +183,8 @@ public class FileDownloadService {
                 Response response = client.newCall(request).execute();
                 BinaryFileWriter binaryFileWriter = new BinaryFileWriter(new FileOutputStream(fileName, resume), progressCallback, downloadOffset)
         ) {
-//            if (response.isRedirect()) {
-//                System.out.println("expired: " + response.header("location"));
-//                String message = "Link to the page has expired";
-//                printProgress(0, 0, fileName, message);
-//                return 0L;
-////                throw new ExpiredLinkException("Link to the page has expired");
-//            } // TODO probably deletion
             ResponseBody body = response.body();
-            if (body == null) {
+            if (body == null || response.isRedirect()) {
                 throw new IllegalStateException("[ download ] Response doesn't contain a file");
             }
             double length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
@@ -200,13 +197,9 @@ public class FileDownloadService {
 
     }
 
-//    public DownloadElement sendPostWithOkHttp(DownloadElement downloadElement) throws IOException {
-//        return RequestService.sendPostWithOkHttp(downloadElement);
-//    }
-
     public static void main(String[] args) throws IOException {
         FileDownloadService fileDownloadService = new FileDownloadService();
-        String url = "https://download.uloz.to/Ps;Hs;up=0;cid=309935039;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=ncCdkxs;fs=NFqTp2z5VzrS;hid=c8zmjzb;rid=837695064;tm=1663281611;ut=f;rs=1;fet=download_free;He;ch=6530a49aa9f5665b558106b560fa8b6e;Pe/file/NFqTp2z5VzrS/1065-ukf-the-prodigy-nasty-spor-remix-mp3?bD&c=309935039&De','true'";
+        String url = "https://download.uloz.to/Ps;Hs;up=0;cid=281468240;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=SVmGspr;fs=whSDAyWl6tiW;hid=CGAX7Kf;rid=440430961;tm=1664572535;ut=f;rs=0;fet=download_free;He;ch=8980352cb83c6e294876f795d6e5f182;Pe/file/whSDAyWl6tiW/the-requin-thriller-usa-2022-cz-titulky-mkv?bD&c=281468240&De";
         String folder = "R:\\Temp\\";
         String file = "20MB.zip";
         fileDownloadService.downloadWithFolder(file, folder, url, 0);
