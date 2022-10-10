@@ -191,10 +191,10 @@ public class FileDownloadService {
             currentDownloadElement.setDataTotalSize((long) length);
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length, this);
         } catch (IOException ioException) {
+            // TODO resolve timeout issue, download gets interrupted and after resume throws instantly timeout ex
             System.out.println("[ download ] " + ioException.getMessage());
         }
         return downloadedBytes;
-
     }
 
     public static void main(String[] args) throws IOException {

@@ -21,12 +21,12 @@ public class UloztoRemoteDownloaderApplication {
 	* Check if argument is provided
 	* */
 	public static void main(String[] args) {
-		if (args.length > 0) {
-			SpringApplication.run(UloztoRemoteDownloaderApplication.class, args);
+		if (args.length == 1) {
+			// remove quotes if used
+			String replace = args[0].replace('\"', ' ').trim();
+			SpringApplication.run(UloztoRemoteDownloaderApplication.class, replace);
 		} else {
-			System.out.println("No folder path provided, run with argument '--dpathr=<path>'");
+			System.out.println("No folder path provided, run with argument '--dpath=<path>'");
 		}
 	}
-
-
 }

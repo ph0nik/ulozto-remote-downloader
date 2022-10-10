@@ -44,6 +44,9 @@
             </div>
         </form>
     </div>
+    <div th:if="generalErrorStatus" class="row justify-content-center mb-2">
+        <span th:text="${generalError}" class="align-middle text-center fw-bold text-danger fs-4"></span>
+    </div>
 
     <!--now downloading title-->
     <div th:hidden="${!showNowDownloading}" id="currentDownloadSession">
@@ -178,7 +181,7 @@
                     </div>
                     <div class="row small">
                         <div class="col-2">
-                            <b>last changed:</b>
+                            <b>added:</b>
                         </div>
                         <div class="col-auto">
 <!--                            <span th:text="${elem.getTimestamp()}"></span>-->
@@ -204,7 +207,7 @@
         </div>
         <div class="col-auto text-secondary fs-6">
                     <span th:text="${download_folder}" class="">
-            c:\asdasd\asdasd\asdasd
+<!--            c:\asdasd\asdasd\asdasd-->
         </span>
         </div>
     </div>

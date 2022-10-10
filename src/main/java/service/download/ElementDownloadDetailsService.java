@@ -11,6 +11,7 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import service.request.RequestService;
 
+import javax.naming.LimitExceededException;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -46,11 +47,13 @@ public class ElementDownloadDetailsService {
             downloadElement.setStatusCode(e.getStatusCode());
             downloadElement.setStatusMessage(e.getMessage());
             System.out.println("[ get_download_info ] " + e.getMessage());
-        } catch (IOException e) {
+        } catch (IOException | LimitExceededException e) {
             downloadElement.setStatusMessage(e.getMessage());
+            downloadElement.setStatusCode(418);
             System.out.println("[ get_download_info ] " + e.getMessage());
         }
         return downloadElement;
+
     }
 
     public DownloadElement resumeDownloadInfo(DownloadElement downloadElement) {
@@ -69,7 +72,7 @@ public class ElementDownloadDetailsService {
     * to be updated with new values, if server returns redirect object is going to be
     * updated with new response link value.
     * */
-    private DownloadElement sendRequestForCaptcha(DownloadElement downloadElement) throws IOException {
+    private DownloadElement sendRequestForCaptcha(DownloadElement downloadElement) throws IOException, LimitExceededException {
         // get custom response object with data
         CustomResponse response = RequestService.sendGetWithOkHttp(downloadElement.getCaptchaRequestUrl());
         // print status code to console
@@ -77,6 +80,7 @@ public class ElementDownloadDetailsService {
 //        downloadElement.setStatusCode(response.getStatusCode());
         downloadElement.setStatusMessage(response.getStatusMessage());
         // if request returnss 200 then process dto object if 3xx download file, if else show error
+
         if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
             HashMap<String, String> formMap = getFormMap(response.getResponseBody());
             if (!formMap.isEmpty()) {
@@ -138,6 +142,9 @@ public class ElementDownloadDetailsService {
             requestElementForm.setAudioLink(captchaReloadData.getSound());
         } catch (JsonSyntaxException | IOException ex) {
             System.out.println(ex.getMessage());
+        } catch (LimitExceededException e) {
+            System.out.println("[ reload_captcha ] Limit exceed");
+            // TODO make form return error signal to user
         }
         return requestElementForm;
     }
@@ -177,7 +184,7 @@ public class ElementDownloadDetailsService {
     /*
      * Get file name from element web page, returns file name with extension if found, otherwise returns empty string
      * */
-    String getFileNameFromUrl(String url) throws IOException {
+    String getFileNameFromUrl(String url) throws IOException, LimitExceededException {
         CustomResponse response = RequestService.sendGetWithOkHttp(url);
         String title = Jsoup.parse(response.getResponseBody()).title();
         String illegalCharacters = "[/?<>\\\\*:|\"^]+";

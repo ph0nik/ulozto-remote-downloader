@@ -6,6 +6,7 @@ import okhttp3.*;
 import service.MyCookieJar;
 import util.BoundaryGenerator;
 
+import javax.naming.LimitExceededException;
 import java.io.IOException;
 
 public class RequestService {
@@ -20,7 +21,7 @@ public class RequestService {
     * Sends GET request and returns html page with code 200, direct download link for code 302,
     * and empty string for any other code.
     * */
-    public static CustomResponse sendGetWithOkHttp(String url) throws IOException {
+    public static CustomResponse sendGetWithOkHttp(String url) throws IOException, LimitExceededException {
         OkHttpClient client = new OkHttpClient().newBuilder()
                 .cookieJar(jar)
                 .followRedirects(false)
@@ -37,14 +38,22 @@ public class RequestService {
             // set status and message of response
             customResponse.setStatusCode(response.code());
             customResponse.setStatusMessage(response.message());
+
             /*
              * For codes other than 200 (201 for example), there's location parameter in the header,
              * that points to a file.
              * */
             if (response.isSuccessful()) {
+                customResponse.setStatusCode(200);
                 ResponseBody responseBody = response.body();
                 if (responseBody != null) customResponse.setResponseBody(responseBody.string());
-                if (response.isRedirect()) customResponse.setResponseLink(responseHeaders.get("location"));
+            } else if (response.isRedirect()) {
+                String location = responseHeaders.get("location");
+                customResponse.setResponseLink(responseHeaders.get("location"));
+                if (isLimitExceeded(location)) {
+                    throw new LimitExceededException("We noticed too many download requests from your IP. Confirm that you are not a robot.");
+                }
+
             } else {
                 customResponse.setStatusCode(response.code());
                 customResponse.setStatusMessage(response.message());
@@ -54,6 +63,11 @@ public class RequestService {
 
         }
         return customResponse;
+    }
+
+    static boolean isLimitExceeded(String location) {
+        String limitEx = "download-dialog/free/limit-exceeded";
+        return location.contains(limitEx);
     }
 
     public static DownloadElement sendPostWithOkHttp(DownloadElement downloadElement) throws IOException {

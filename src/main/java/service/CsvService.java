@@ -107,7 +107,7 @@ public class CsvService {
     private void createCsvObject(DownloadElement downloadElement) {
         // check if element exists, update existing
         if (beans.size() == MAX_LIST_SIZE) beans.remove(0);
-        SessionBean sessionBean = containsBeanWith(downloadElement);
+        SessionBean sessionBean = findAndDeleteExistingBean(downloadElement);
         sessionBean.setCaptchaRequestUrl(downloadElement.getCaptchaRequestUrl());
         sessionBean.setResume(downloadElement.isResume());
         sessionBean.setDataOffset(downloadElement.getDataOffset());
@@ -121,22 +121,44 @@ public class CsvService {
     }
 
     /*
-     * Search for bean with the same captcha link as download element, if such bean
-     * is found it's removed from the list and returned.
-     * Otherwise, returns empty bean.
-     * */
-    private SessionBean containsBeanWith(DownloadElement downloadElement) {
+    *
+    * */
+    private int findBeanIndexWithPath(DownloadElement downloadElement) {
         String captchaRequestUrl = downloadElement.getCaptchaRequestUrl();
         int i = 0;
         for (CsvBean sb : beans) {
             if (((SessionBean) sb).getCaptchaRequestUrl().equals(captchaRequestUrl)) {
                 System.out.println("[ csv_service ] found existing element: " + captchaRequestUrl);
-                return (SessionBean) beans.remove(i);
+                return i;
             }
             i++;
         }
-        System.out.println("[ csv_service ] insert new element");
-        return new SessionBean();
+        return -1;
+    }
+
+    /*
+     * Search for bean with the same captcha link as download element, if such bean
+     * is found it's removed from the list and returned.
+     * Otherwise, returns empty bean.
+     * */
+    private SessionBean findAndDeleteExistingBean(DownloadElement downloadElement) {
+        int beanIndexWithPath = findBeanIndexWithPath(downloadElement);
+        if (beanIndexWithPath < 0) {
+            System.out.println("[ csv_service ] insert new element");
+            return new SessionBean();
+        }
+        return (SessionBean) beans.remove(beanIndexWithPath);
+//        String captchaRequestUrl = downloadElement.getCaptchaRequestUrl();
+//        int i = 0;
+//        for (CsvBean sb : beans) {
+//            if (((SessionBean) sb).getCaptchaRequestUrl().equals(captchaRequestUrl)) {
+//                System.out.println("[ csv_service ] found existing element: " + captchaRequestUrl);
+//                return (SessionBean) beans.remove(i);
+//            }
+//            i++;
+//        }
+//        System.out.println("[ csv_service ] insert new element");
+//        return new SessionBean();
     }
 
     public List<DownloadElement> removeFinishedElements() {

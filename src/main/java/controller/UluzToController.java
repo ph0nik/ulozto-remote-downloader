@@ -49,6 +49,8 @@ public class UluzToController {
     private Boolean insertLink = true;
     private Boolean downloadFinished = false;
 
+    private Boolean generalErrorStatus = false;
+
     @ModelAttribute("download_finished")
     public Boolean elementDownloadFinished() {
         return downloadFinished;
@@ -94,10 +96,12 @@ public class UluzToController {
         return downloadHistory;
     }
 
+    // TODO show little x mark at the right bottom corner of every element to delete it
     @GetMapping("/")
     public String startPage(Model model) {
 //        downloadElement = csvService.getLatestDownload();
         loadDownloadHistory();
+        System.out.println(downloadElementList);
         model.addAttribute("elements_history", downloadElementList);
         if (future != null && !future.isDone()) {
             insertLink = downloadHistory = false;
@@ -105,6 +109,10 @@ public class UluzToController {
         } else {
             insertLink = downloadHistory = true;
             nowDownloading = false;
+        }
+        if (downloadElement != null) {
+            model.addAttribute("generalError", downloadElement.getStatusMessage());
+            model.addAttribute("generalErrorStatus", true);
         }
         model.addAttribute("showInsertLink", insertLink);
         model.addAttribute("showNowDownloading", nowDownloading);
@@ -122,6 +130,7 @@ public class UluzToController {
             return "redirect:/ulozto/download";
         } else {
             downloadElement.setStatusMessage("Link expired");
+            System.out.println("expired");
             return "redirect:/ulozto/";
         }
     }
@@ -167,6 +176,9 @@ public class UluzToController {
             return "redirect:/ulozto/";
         }
         downloadElement = elementDownloadDetailsService.getDownloadInfo(new DownloadElement(), page);
+        if (downloadElement.getStatusCode() > 400) {
+            return "redirect:/ulozto/";
+        }
         return "redirect:/ulozto/download";
     }
 
@@ -223,5 +235,7 @@ public class UluzToController {
         downloadElementList = csvService.removeFinishedElements();
         return "redirect:/ulozto/";
     }
+
+    // TODO make error resolver with separate view for errors
 
 }
