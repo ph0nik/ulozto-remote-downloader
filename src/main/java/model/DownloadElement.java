@@ -15,6 +15,16 @@ public class DownloadElement {
     private String statusMessage;
     private Timestamp timestamp;
 
+//    private int downloadErrorCount;
+//
+//    public int getDownloadErrorCount() {
+//        return downloadErrorCount;
+//    }
+//
+//    public void setDownloadErrorCount(int downloadErrorCount) {
+//        this.downloadErrorCount = downloadErrorCount;
+//    }
+
     private boolean validPath;
 
     public boolean isValidPath() {

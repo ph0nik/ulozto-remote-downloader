@@ -25,6 +25,7 @@ import javax.annotation.PostConstruct;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Future;
@@ -33,6 +34,8 @@ import java.util.concurrent.Future;
 public class FileDownloadService {
 
     public static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.134 Safari/537.36 OPR/89.0.4447.83";
+    public static final int RETRY_INTERVAL = 5 * 60 * 1000; // minutes between retry
+    public static final int RETRY_ATTEMPTS = 3;
 
     private int counter;
 
@@ -53,6 +56,10 @@ public class FileDownloadService {
     private String downloadFolder;
 
     private static boolean cancel;
+
+    private static int errorCounter;
+
+    private static boolean timeoutOrConnectivityError;
 
     public FileDownloadService() {
         cancel = false;
@@ -75,19 +82,20 @@ public class FileDownloadService {
 
     @Async
     public Future<DownloadElement> generalDownload(DownloadElement downloadElement) {
+        // TODO add to this object timeout counter
         currentDownloadElement = downloadElement;
-        cancel = false;
+        cancel = timeoutOrConnectivityError = false;
+        errorCounter = 0;
         resumeDispatch(downloadElement);
         Long totalBytes = 0L;
-        try {
-            totalBytes = downloadWithFolder(downloadElement.getFileName(), downloadFolder, downloadElement.getFinalLink(), downloadElement.getDataOffset());
-        } catch (IOException e) {
-            currentDownloadElement.setResume(true);
-            currentDownloadElement.setStatusMessage(e.getMessage());
-            System.out.println("[ general_download ] " + e.getMessage());
-        }
-        currentDownloadElement.setResume(currentDownloadElement.getDataTotalSize() - totalBytes != 0);
-        currentDownloadElement.setDataOffset(totalBytes);
+//        try {
+        totalBytes = downloadWithFolder(downloadElement.getFileName(), downloadFolder, downloadElement.getFinalLink(), downloadElement.getDataOffset());
+//        } catch (IOException e) {
+//            currentDownloadElement.setResume(true);
+//            currentDownloadElement.setStatusMessage(e.getMessage());
+//            System.out.println("[ general_download ] " + e.getMessage());
+//        }
+
         csvService.saveState(currentDownloadElement);
         return new AsyncResult<>(currentDownloadElement);
     }
@@ -105,8 +113,8 @@ public class FileDownloadService {
     }
 
     /*
-    * Prints download file progress in console, for every 500 bytes written
-    * */
+     * Prints download file progress in console, for every 500 bytes written
+     * */
     void printProgress(long current, double total, double transferRate, String fileName, String fileSource) {
         if (counter == 500 || current == total) {
             printToConsole(current, total);
@@ -126,16 +134,22 @@ public class FileDownloadService {
 
     void resumeDispatch(DownloadElement downloadElement) {
         if (downloadElement.isResume()) {
-            DispatchStatus dispatchStatus = new DispatchStatus();
-            dispatchStatus.setFileName(downloadElement.getFileName());
-            dispatchStatus.setFileSource(downloadElement.getFinalLink());
-            dispatchStatus.setLength((double) downloadElement.getDataTotalSize());
-            dispatchStatus.setTotalBytes(downloadElement.getDataOffset());
-            dispatcher.dispatch(dispatchStatus);
+            dispatchStatus(downloadElement.getDataOffset(),
+                    downloadElement.getDataTotalSize(),
+                    downloadElement.getFileName(),
+                    downloadElement.getFinalLink(),
+                    0);
+//            DispatchStatus dispatchStatus = new DispatchStatus();
+//            dispatchStatus.setFileName(downloadElement.getFileName());
+//            dispatchStatus.setFileSource(downloadElement.getFinalLink());
+//            dispatchStatus.setLength((double) downloadElement.getDataTotalSize());
+//            dispatchStatus.setTotalBytes(downloadElement.getDataOffset());
+//            dispatcher.dispatch(dispatchStatus);
         }
     }
 
     private void dispatchStatus(long current, double total, String fileName, String fileSource, double transferRate) {
+        // TODO add message
         DispatchStatus status = new DispatchStatus();
         status.setTotalBytes(current);
         status.setLength(total);
@@ -145,9 +159,26 @@ public class FileDownloadService {
         dispatcher.dispatch(status);
     }
 
-    public Long downloadWithFolder(String fileName, String folderName, String url, long offset) throws IOException {
+    public Long downloadWithFolder(String fileName, String folderName, String url, long offset) {
         String s = Path.of(folderName).resolve(Path.of(fileName)).toString();
-        return downloadWithOkhttp(s, url, offset);
+        Long dataOffset = downloadWithOkhttp(s, url, offset);
+        while (errorCounter > 0 && errorCounter < RETRY_ATTEMPTS && currentDownloadElement.getDataTotalSize() > currentDownloadElement.getDataOffset()) {
+            try {
+                System.out.println("[ download_retry ] Wait for retry...");
+                Thread.sleep((long) RETRY_INTERVAL * errorCounter);
+            } catch (InterruptedException e) {
+                System.out.println("[ download_retry ] " + e.getMessage());
+            }
+            System.out.println("[ download_retry ] Attempting resume download");
+            dataOffset = downloadWithOkhttp(s, url, dataOffset);
+        }
+        if (errorCounter >= RETRY_ATTEMPTS) System.out.println("[ download_retry ] Too many attempts, aborting...");
+        // retry counter here
+//        String s = Path.of(folderName).resolve(Path.of(fileName)).toString();
+//        return downloadWithOkhttp(s, url, offset);
+        // if timeout wait given time and retry
+        // change wait time after each timeout up to some timeout count
+        return dataOffset;
     }
 
     @EventListener
@@ -155,16 +186,18 @@ public class FileDownloadService {
         System.out.println("[ event_listener ] canceling...");
 //        currentDownloadElement.setResume(true);
         cancel = true;
-
     }
 
-    public Long downloadWithOkhttp(String fileName, String url, long downloadOffset)  {
+    public Long downloadWithOkhttp(String fileName, String url, long downloadOffset) {
         long downloadedBytes = 0;
+        double length = 0;
         ProgressCallback progressCallback = (x, y, z) -> printProgress(x, y, z, fileName, url);
         // build client
+        // TODO set timeout
         OkHttpClient client = new OkHttpClient().newBuilder()
 //                .cookieJar(RequestService.getCookieJar())
                 .followRedirects(true)
+                .readTimeout(Duration.ofSeconds(30))
                 .build();
         // build request
         Request.Builder requestBuilder = new Request.Builder()
@@ -172,28 +205,39 @@ public class FileDownloadService {
                 .addHeader("User-Agent", USER_AGENT);
 
         // request range from server
-        if (downloadOffset != 0 ) requestBuilder.addHeader("Range", "bytes=" + String.valueOf(downloadOffset) + "-");
+        if (downloadOffset != 0) requestBuilder.addHeader("Range", "bytes=" + String.valueOf(downloadOffset) + "-");
         boolean resume = downloadOffset != 0;
 
         Request request = requestBuilder
                 .get()
                 .build();
         // execute call with request and initiate binary file writer with file output stream and callback
+        // possible to get filename from header of response - Content-Disposition: attachment; filename*=UTF-8''Morbid%20Angel%20Discography%20%281985%20-%202020%29.rar
         try (
                 Response response = client.newCall(request).execute();
                 BinaryFileWriter binaryFileWriter = new BinaryFileWriter(new FileOutputStream(fileName, resume), progressCallback, downloadOffset)
         ) {
+            System.out.println("download headers : " + response.headers().toString());
             ResponseBody body = response.body();
             if (body == null || response.isRedirect()) {
                 throw new IllegalStateException("[ download ] Response doesn't contain a file");
             }
-            double length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
+            length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
             currentDownloadElement.setDataTotalSize((long) length);
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length, this);
+
         } catch (IOException ioException) {
             // TODO resolve timeout issue, download gets interrupted and after resume throws instantly timeout ex
-            System.out.println("[ download ] " + ioException.getMessage());
+//            currentDownloadElement.setDownloadErrorCount(currentDownloadElement.getDownloadErrorCount() + 1);
+            timeoutOrConnectivityError = true;
+            currentDownloadElement.setStatusMessage(ioException.getMessage());
+            System.out.println("[ download ] connectivity problem or timeout " + ioException.getMessage());
         }
+        errorCounter = (timeoutOrConnectivityError) ? errorCounter + 1 : 0;
+        long totalBytes = downloadOffset + downloadedBytes;
+        currentDownloadElement.setResume(length - totalBytes != 0);
+        currentDownloadElement.setDataOffset(totalBytes);
+        progressCallback.onProgress(totalBytes, length, 0);
         return downloadedBytes;
     }
 

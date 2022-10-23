@@ -45,7 +45,10 @@ public class BinaryFileWriter implements AutoCloseable {
             }
 //            return totalBytes;
         } catch (IOException ioException) {
+            // TODO protection against timeout error
             System.out.println("[ binary_writer ] " + ioException.getMessage());
+            ioException.printStackTrace();
+            // if timeout change static value
         }
         return totalBytes;
     }
