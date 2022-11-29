@@ -57,9 +57,9 @@ public class FileDownloadService {
 
     private static boolean cancel;
 
-    private static int errorCounter;
+//    private static int errorCounter;
 
-    private static boolean timeoutOrConnectivityError;
+//    private static boolean timeoutOrConnectivityError;
 
     public FileDownloadService() {
         cancel = false;
@@ -84,8 +84,8 @@ public class FileDownloadService {
     public Future<DownloadElement> generalDownload(DownloadElement downloadElement) {
         // TODO add to this object timeout counter
         currentDownloadElement = downloadElement;
-        cancel = timeoutOrConnectivityError = false;
-        errorCounter = 0;
+        cancel = false;
+//        errorCounter = 0;
         resumeDispatch(downloadElement);
         Long totalBytes = 0L;
 //        try {
@@ -162,7 +162,8 @@ public class FileDownloadService {
     public Long downloadWithFolder(String fileName, String folderName, String url, long offset) {
         String s = Path.of(folderName).resolve(Path.of(fileName)).toString();
         Long dataOffset = downloadWithOkhttp(s, url, offset);
-        while (errorCounter > 0 && errorCounter < RETRY_ATTEMPTS && currentDownloadElement.getDataTotalSize() > currentDownloadElement.getDataOffset()) {
+        int errorCounter = RETRY_ATTEMPTS;
+        while (!cancel && errorCounter > 0 && currentDownloadElement.getDataTotalSize() > currentDownloadElement.getDataOffset()) {
             try {
                 System.out.println("[ download_retry ] Wait for retry...");
                 Thread.sleep((long) RETRY_INTERVAL * errorCounter);
@@ -171,8 +172,10 @@ public class FileDownloadService {
             }
             System.out.println("[ download_retry ] Attempting resume download");
             dataOffset = downloadWithOkhttp(s, url, dataOffset);
+            errorCounter--;
         }
-        if (errorCounter >= RETRY_ATTEMPTS) System.out.println("[ download_retry ] Too many attempts, aborting...");
+        if (!cancel && errorCounter == 0 && currentDownloadElement.getDataTotalSize() > currentDownloadElement.getDataOffset())
+            System.out.println("[ download_retry ] Too many attempts, aborting...");
         // retry counter here
 //        String s = Path.of(folderName).resolve(Path.of(fileName)).toString();
 //        return downloadWithOkhttp(s, url, offset);
@@ -184,7 +187,6 @@ public class FileDownloadService {
     @EventListener
     public void handleCancelEvent(CancelEvent cancelEvent) {
         System.out.println("[ event_listener ] canceling...");
-//        currentDownloadElement.setResume(true);
         cancel = true;
     }
 
@@ -227,13 +229,9 @@ public class FileDownloadService {
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length, this);
 
         } catch (IOException ioException) {
-            // TODO resolve timeout issue, download gets interrupted and after resume throws instantly timeout ex
-//            currentDownloadElement.setDownloadErrorCount(currentDownloadElement.getDownloadErrorCount() + 1);
-            timeoutOrConnectivityError = true;
             currentDownloadElement.setStatusMessage(ioException.getMessage());
             System.out.println("[ download ] connectivity problem or timeout " + ioException.getMessage());
         }
-        errorCounter = (timeoutOrConnectivityError) ? errorCounter + 1 : 0;
         long totalBytes = downloadOffset + downloadedBytes;
         currentDownloadElement.setResume(length - totalBytes != 0);
         currentDownloadElement.setDataOffset(totalBytes);

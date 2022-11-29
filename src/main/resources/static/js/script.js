@@ -39,6 +39,16 @@ function getPercentage(current, total) {
             return 100;
        }
 }
+// TODO
+function insertSpacesInTransferRate(value) {
+    let j = Math.floor(value.toString().length / 3);
+    let div = value.toString().length - (j * 3);
+    let lead = value.toString().slice(0, div);
+    let rest = value.toString().slice(div, value.toString().length);
+       for (let i = 0; i < j; i++) {
+
+       }
+}
 
 function formatTransferRate(value) {
     if (value.toString().length >= 4) {
