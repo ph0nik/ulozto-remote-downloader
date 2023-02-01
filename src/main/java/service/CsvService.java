@@ -10,13 +10,12 @@ import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import model.CsvBean;
 import model.DownloadElement;
 import model.SessionBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import util.AppdataResolver;
 
 import javax.annotation.PostConstruct;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Timestamp;
@@ -27,14 +26,15 @@ import java.util.LinkedList;
 import java.util.List;
 
 @Service
-public class CsvService {
+public class CsvService implements StateService {
 
     private static final String STATE_FILE = "download_state.csv";
     private static final String DIR = "config";
-
     private static final int MAX_LIST_SIZE = 10;
-
     private Path stateFilePath;
+
+    @Autowired
+    private AppdataResolver appdataResolver;
 
     private List<CsvBean> beans;
 
@@ -44,18 +44,8 @@ public class CsvService {
     }
 
     @PostConstruct
-    private void initDirectory() {
-        Path dir = Path.of(DIR);
-        if (!Files.exists(dir)) {
-            System.out.println("[ init_csv ] directory not found");
-            try {
-                System.out.println("[ init_csv ] creating directory: '" + dir + "'");
-                Files.createDirectory(dir);
-            } catch (IOException e) {
-                System.out.println("[ init_csv ] " + e.getMessage());
-            }
-        }
-        stateFilePath = dir.resolve(Path.of(STATE_FILE));
+    private void loadState() {
+        stateFilePath = Path.of(DIR).resolve(Path.of(STATE_FILE));
         if (Files.exists(stateFilePath)) {
             System.out.println("[ init_csv ] file exists");
             beans = restoreState(stateFilePath, SessionBean.class);
@@ -108,10 +98,12 @@ public class CsvService {
         // check if element exists, update existing
         if (beans.size() == MAX_LIST_SIZE) beans.remove(0);
         SessionBean sessionBean = findAndDeleteExistingBean(downloadElement);
+        String currentCaptchaRequestUrl = sessionBean.getCaptchaRequestUrl();
         sessionBean.setCaptchaRequestUrl(downloadElement.getCaptchaRequestUrl());
         sessionBean.setResume(downloadElement.isResume());
         sessionBean.setDataOffset(downloadElement.getDataOffset());
-        sessionBean.setDataSize(downloadElement.getDataTotalSize());
+        // check if current link exists, if not insert data size
+        if (currentCaptchaRequestUrl == null) sessionBean.setDataSize(downloadElement.getDataTotalSize());
         sessionBean.setFinalLink(downloadElement.getFinalLink());
         sessionBean.setFileName(downloadElement.getFileName());
         Timestamp timestamp = downloadElement.getTimestamp();
@@ -119,6 +111,8 @@ public class CsvService {
         sessionBean.setTimestamp(timestamp);
         beans.add(sessionBean);
     }
+
+    // get oldest and finished entry
 
     /*
     *
@@ -161,11 +155,16 @@ public class CsvService {
 //        return new SessionBean();
     }
 
-    public List<DownloadElement> removeFinishedElements() {
+    public StateService removeFinishedElements() {
         System.out.println("[ csv_clear ] Removing finished elements...");
         beans.removeIf(bean -> !((SessionBean) bean).isResume());
         saveState(stateFilePath);
-        return getStateList();
+        return this;
+    }
+
+    @Override
+    public StateService removeInvalidElements() {
+        return this;
     }
 
     public List<DownloadElement> removeSelectedElement(int i) {
@@ -174,22 +173,26 @@ public class CsvService {
         return getStateList();
     }
 
-    /*
-     * Check if state file exist, if so return true, otherwise return false
-     * */
     public boolean isStateFile() {
         return Files.exists(stateFilePath);
     }
 
-    /*
-     * Load state list from a file
-     * */
     public List<DownloadElement> getStateList() {
         List<DownloadElement> list = new ArrayList<>();
         for (CsvBean bean : beans) {
             list.add(parseBeanToDownloadElement((SessionBean) bean));
         }
+        // TODO
+        correctInvalidDataSize(list);
         return list;
+    }
+
+    private void correctInvalidDataSize(List<DownloadElement> downloadElements) {
+        for (DownloadElement de : downloadElements) {
+         File f = new File(de.getFileName());
+         if (f.exists() && f.isFile())
+             System.out.println("file size [b]: " + f.length());
+        }
     }
 
     /*
@@ -216,25 +219,25 @@ public class CsvService {
         return downloadElement;
     }
 
-    public static void main(String[] args) throws IOException {
-        Path directory = Path.of("config");
-        if (!Files.exists(directory)) Files.createDirectory(directory);
-        Path file = Path.of("test.csv");
-        Path path = directory.resolve(file);
-
-        DownloadElement downloadElement = new DownloadElement();
-        downloadElement.setResume(true);
-        downloadElement.setDataOffset(2096810);
-        downloadElement.setFileName("dubel Roni Size - Reprazent New Forms 2 .rar");
-        downloadElement.setCaptchaRequestUrl("2https://ulozto.net/download-dialog/free/download?fileSlug=lXCHnL50f1pA");
-        downloadElement.setFinalLink("https://download.uloz.to/Ps;Hs;up=0;cid=285193758;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=pyfQcbR;fs=lXCHnL50f1pA;hid=9ZBoYgR;rid=400232830;tm=1662480426;ut=f;rs=0;fet=download_free;He;ch=acab65706281d0a8985df82c762bc188;Pe/file/lXCHnL50f1pA/roni-size-reprazent-new-forms-2-rar?bD&c=285193758&De");
-
-        CsvService csvService = new CsvService();
-        csvService.initDirectory();
-//        csvService.createCsvObject(downloadElement);
-//        csvService.restoreState(path, SessionBean.class);
-        csvService.saveState(downloadElement);
-
-
-    }
+//    public static void main(String[] args) throws IOException {
+//        Path directory = Path.of("config");
+//        if (!Files.exists(directory)) Files.createDirectory(directory);
+//        Path file = Path.of("test.csv");
+//        Path path = directory.resolve(file);
+//
+//        DownloadElement downloadElement = new DownloadElement();
+//        downloadElement.setResume(true);
+//        downloadElement.setDataOffset(2096810);
+//        downloadElement.setFileName("dubel Roni Size - Reprazent New Forms 2 .rar");
+//        downloadElement.setCaptchaRequestUrl("2https://ulozto.net/download-dialog/free/download?fileSlug=lXCHnL50f1pA");
+//        downloadElement.setFinalLink("https://download.uloz.to/Ps;Hs;up=0;cid=285193758;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=pyfQcbR;fs=lXCHnL50f1pA;hid=9ZBoYgR;rid=400232830;tm=1662480426;ut=f;rs=0;fet=download_free;He;ch=acab65706281d0a8985df82c762bc188;Pe/file/lXCHnL50f1pA/roni-size-reprazent-new-forms-2-rar?bD&c=285193758&De");
+//
+//        StateService csvService = new CsvService();
+////        csvService.initDirectory();
+////        csvService.createCsvObject(downloadElement);
+////        csvService.restoreState(path, SessionBean.class);
+//        csvService.saveState(downloadElement);
+//
+//
+//    }
 }

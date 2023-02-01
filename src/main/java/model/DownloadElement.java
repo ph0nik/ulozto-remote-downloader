@@ -1,7 +1,15 @@
 package model;
 
+import util.TimestampAdapter;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.sql.Timestamp;
 
+@XmlRootElement(name = "element")
+@XmlAccessorType(XmlAccessType.FIELD)
 public class DownloadElement {
 
     private RequestElementForm requestElementForm;
@@ -13,6 +21,7 @@ public class DownloadElement {
     private boolean resume;
     private int statusCode;
     private String statusMessage;
+    @XmlJavaTypeAdapter(TimestampAdapter.class)
     private Timestamp timestamp;
 
 //    private int downloadErrorCount;

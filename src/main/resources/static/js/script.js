@@ -23,7 +23,7 @@ function printResponse(response) {
         cancelButton.remove();
         percentage.setAttribute("class", "progress-bar bg-success");
     }
-    progress.textContent = responseObj.totalBytes + ' / ' + responseObj.length + ' bytes [ ' + percentageValue + '% ] | ' + transferRate;
+    progress.textContent = insertSpacesInTransferRate(responseObj.totalBytes) + ' / ' + insertSpacesInTransferRate(responseObj.length) + ' bytes [ ' + percentageValue + '% ] | ' + transferRate;
 
     percentage.innerHTML = percentageValue + "%";
     percentage.setAttribute("style","width: " + percentageValue + "%");
@@ -39,15 +39,25 @@ function getPercentage(current, total) {
             return 100;
        }
 }
-// TODO
-function insertSpacesInTransferRate(value) {
-    let j = Math.floor(value.toString().length / 3);
-    let div = value.toString().length - (j * 3);
-    let lead = value.toString().slice(0, div);
-    let rest = value.toString().slice(div, value.toString().length);
-       for (let i = 0; i < j; i++) {
 
-       }
+
+function insertSpacesInTransferRate(value) {
+let arr = value.toString().split('');
+let arrLength = arr.length;
+let splitCount = 1;
+let firstBreak = arrLength % 3;
+let number = '';
+for (let i = 0; i < arrLength; i++) {
+    if (i != 0 && i == firstBreak) {
+        number += ' ';
+    }
+    if (i == (firstBreak + (splitCount * 3))) {
+        number += ' '
+        splitCount++;
+    }
+    number += arr[i];
+}
+return number;
 }
 
 function formatTransferRate(value) {

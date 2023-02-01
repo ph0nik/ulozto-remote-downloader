@@ -9,13 +9,14 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpHeaders;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
-import service.CsvService;
 import service.RootFolderResolver;
+import service.StateService;
 import service.events.CancelEvent;
 import util.ElementValidator;
 import websocket.NotificationDispatcher;
@@ -46,7 +47,8 @@ public class FileDownloadService {
     private RootFolderResolver rootFolderResolver;
 
     @Autowired
-    private CsvService csvService;
+    @Qualifier("xmlService")
+    private StateService stateService;
 
     @Autowired
     private ElementValidator elementValidator;
@@ -76,13 +78,15 @@ public class FileDownloadService {
     @PostConstruct
     private void setUpDownloadFolder() {
         downloadFolder = rootFolderResolver.getUserFolder();
-        System.out.println("[ download_folder ] path: " + downloadFolder);
-        System.out.println("[ download_folder ] exist? " + rootFolderResolver.isFolderValid());
+        System.out.println("[ download_folder ] User defined download path: " + downloadFolder);
+        String message = (rootFolderResolver.isFolderValid()) ? "path exists" : "path not found";
+        System.out.println("[ download_folder ] " + message);
     }
 
     @Async
     public Future<DownloadElement> generalDownload(DownloadElement downloadElement) {
         // TODO add to this object timeout counter
+        // wrong byte data is being written
         currentDownloadElement = downloadElement;
         cancel = false;
 //        errorCounter = 0;
@@ -96,7 +100,7 @@ public class FileDownloadService {
 //            System.out.println("[ general_download ] " + e.getMessage());
 //        }
 
-        csvService.saveState(currentDownloadElement);
+        stateService.saveState(currentDownloadElement);
         return new AsyncResult<>(currentDownloadElement);
     }
 
@@ -219,13 +223,15 @@ public class FileDownloadService {
                 Response response = client.newCall(request).execute();
                 BinaryFileWriter binaryFileWriter = new BinaryFileWriter(new FileOutputStream(fileName, resume), progressCallback, downloadOffset)
         ) {
-            System.out.println("download headers : " + response.headers().toString());
+            System.out.println("download headers : " + response.headers());
             ResponseBody body = response.body();
             if (body == null || response.isRedirect()) {
-                throw new IllegalStateException("[ download ] Response doesn't contain a file");
+//                throw new IllegalStateException("[ download ] Response doesn't contain a file");
+                System.out.println("[ download ] Aborted, response doesn't contain a file");
+                return 0L;
             }
             length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
-            currentDownloadElement.setDataTotalSize((long) length);
+            if (currentDownloadElement.getDataTotalSize() < 1) currentDownloadElement.setDataTotalSize((long) length);
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length, this);
 
         } catch (IOException ioException) {
@@ -233,19 +239,10 @@ public class FileDownloadService {
             System.out.println("[ download ] connectivity problem or timeout " + ioException.getMessage());
         }
         long totalBytes = downloadOffset + downloadedBytes;
-        currentDownloadElement.setResume(length - totalBytes != 0);
+        currentDownloadElement.setResume(currentDownloadElement.getDataTotalSize() - totalBytes != 0);
         currentDownloadElement.setDataOffset(totalBytes);
         progressCallback.onProgress(totalBytes, length, 0);
-        return downloadedBytes;
-    }
-
-    public static void main(String[] args) throws IOException {
-        FileDownloadService fileDownloadService = new FileDownloadService();
-        String url = "https://download.uloz.to/Ps;Hs;up=0;cid=281468240;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=SVmGspr;fs=whSDAyWl6tiW;hid=CGAX7Kf;rid=440430961;tm=1664572535;ut=f;rs=0;fet=download_free;He;ch=8980352cb83c6e294876f795d6e5f182;Pe/file/whSDAyWl6tiW/the-requin-thriller-usa-2022-cz-titulky-mkv?bD&c=281468240&De";
-        String folder = "R:\\Temp\\";
-        String file = "20MB.zip";
-        fileDownloadService.downloadWithFolder(file, folder, url, 0);
-//        fileDownloadService.downloadWithOkhttp(file, url);
+        return totalBytes;
     }
 
 }

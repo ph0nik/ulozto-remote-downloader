@@ -4,11 +4,12 @@ import model.CaptchaRequestDto;
 import model.DownloadElement;
 import model.RequestElementForm;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import service.CsvService;
+import service.StateService;
 import service.download.ElementDownloadDetailsService;
 import service.download.FileDownloadService;
 import service.events.CustomEventPublisher;
@@ -31,7 +32,8 @@ public class UluzToController {
     FileDownloadService fileDownloadService;
 
     @Autowired
-    CsvService csvService;
+    @Qualifier("xmlService")
+    StateService stateService;
 
     @Autowired
     CustomEventPublisher customEventPublisher;
@@ -58,8 +60,8 @@ public class UluzToController {
 
     @ModelAttribute("elements_history")
     public List<DownloadElement> loadDownloadHistory() {
-        if (csvService != null) {
-            downloadElementList = csvService.getStateList();
+        if (stateService != null) {
+            downloadElementList = stateService.getStateList();
             return fileDownloadService.isPathValid(downloadElementList);
         }
         return List.of(new DownloadElement());
@@ -96,12 +98,9 @@ public class UluzToController {
         return downloadHistory;
     }
 
-    // TODO show little x mark at the right bottom corner of every element to delete it
     @GetMapping("/")
     public String startPage(Model model) {
-//        downloadElement = csvService.getLatestDownload();
         loadDownloadHistory();
-        System.out.println(downloadElementList);
         model.addAttribute("elements_history", downloadElementList);
         if (future != null && !future.isDone()) {
             insertLink = downloadHistory = false;
@@ -139,12 +138,10 @@ public class UluzToController {
     public String deleteElement(@PathVariable("id") int id, Model model) {
         System.out.println("[ controller_delete ] id: " + id);
         System.out.println("[ controller_delete ] " + downloadElementList.get(id));
-        downloadElementList = csvService.removeSelectedElement(id);
+        downloadElementList = stateService.removeSelectedElement(id);
         return "redirect:/ulozto/";
     }
 
-
-    // TODO in case of download error probe some service if network is up, when is up try resume
     @GetMapping("/download")
     public String getDownloadPage(Model model) {
         if (downloadElement.getFinalLink() != null && !downloadElement.getFinalLink().isEmpty()) {
@@ -170,7 +167,6 @@ public class UluzToController {
 
     @PostMapping("/get_link/page={page}")
     public String getPageLink(@RequestParam("page") String page, Model model) throws IOException {
-        // TODO add spring validation for incoming params
         if (!LinkValidator.isProperUloztoLink(page)) {
             System.out.println("[ get_page_link ] invalid link format: " + page);
             return "redirect:/ulozto/";
@@ -232,10 +228,7 @@ public class UluzToController {
 
     @GetMapping("/clear_history")
     public String clearHistory(Model model) {
-        downloadElementList = csvService.removeFinishedElements();
+        downloadElementList = stateService.removeFinishedElements().removeInvalidElements().getStateList();
         return "redirect:/ulozto/";
     }
-
-    // TODO make error resolver with separate view for errors
-
 }
