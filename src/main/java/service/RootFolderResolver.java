@@ -21,6 +21,11 @@ public class RootFolderResolver {
     @PostConstruct
     private void setUserFolder() {
         userFolder = (env.containsProperty(FOLDER) && validateFolder(env.getProperty(FOLDER))) ? env.getProperty(FOLDER) : "";
+        if (userFolder.isEmpty()) {
+            System.out.println("[ root_folder ] path not found");
+        } else {
+            System.out.println("[ root_folder ] User defined download path: " + userFolder);
+        }
     }
 
     /*

@@ -24,16 +24,6 @@ public class DownloadElement {
     @XmlJavaTypeAdapter(TimestampAdapter.class)
     private Timestamp timestamp;
 
-//    private int downloadErrorCount;
-//
-//    public int getDownloadErrorCount() {
-//        return downloadErrorCount;
-//    }
-//
-//    public void setDownloadErrorCount(int downloadErrorCount) {
-//        this.downloadErrorCount = downloadErrorCount;
-//    }
-
     private boolean validPath;
 
     public boolean isValidPath() {
@@ -52,13 +42,13 @@ public class DownloadElement {
         this.timestamp = timestamp;
     }
 
-    public double getPercentageProgress() {
-        if (dataTotalSize >= dataOffset) {
-            double v = (dataOffset * 100d) / dataTotalSize;
-            return Math.round(v * 100.0) / 100;
-        }
-        return 0;
-    }
+//    public double getPercentageProgress() {
+//        if (dataTotalSize >= dataOffset) {
+//            double v = (dataOffset * 100d) / dataTotalSize;
+//            return Math.round(v * 100.0) / 100d;
+//        }
+//        return 0;
+//    }
 
     public long getDataTotalSize() {
         return dataTotalSize;

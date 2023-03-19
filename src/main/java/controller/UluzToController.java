@@ -42,7 +42,7 @@ public class UluzToController {
 
     private List<DownloadElement> downloadElementList;
 
-    private Future<DownloadElement> future;
+    private Future<Long> future;
 
 //    private Boolean resumable = false;
 
@@ -123,11 +123,11 @@ public class UluzToController {
     public String resumeCurrent(@PathVariable("id") int id, Model model) {
         System.out.println("[ controller_resume ] id: " + id);
         System.out.println("[ controller_resume ] " + downloadElementList.get(id));
-//        downloadElement = elementDownloadDetailsService.resumeDownloadInfo(downloadElementList.get(id));
         downloadElement = downloadElementList.get(id);
         if (elementDownloadDetailsService.isValidDownload(downloadElement)) {
             return "redirect:/ulozto/download";
         } else {
+            //TODO get the same file offset and rerun
             downloadElement.setStatusMessage("Link expired");
             System.out.println("expired");
             return "redirect:/ulozto/";
@@ -146,7 +146,6 @@ public class UluzToController {
     public String getDownloadPage(Model model) {
         if (downloadElement.getFinalLink() != null && !downloadElement.getFinalLink().isEmpty()) {
             if (elementDownloadDetailsService.hasProperLocation(downloadElement)) {
-                System.out.println(downloadElement);
                 future = fileDownloadService.generalDownload(downloadElement);
                 insertLink = downloadHistory = downloadFinished = false;
                 nowDownloading = true;
@@ -219,7 +218,7 @@ public class UluzToController {
 //            Wait for async function to finish
         }
         try {
-            downloadElement = future.get();
+            long bytesDownloaded = future.get();
         } catch (InterruptedException | ExecutionException e) {
             System.out.println("[ cancel_controller ] Unable to get future result: " + e.getMessage());
         }

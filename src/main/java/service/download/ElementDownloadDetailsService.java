@@ -25,17 +25,21 @@ import java.util.regex.Pattern;
 @Service
 public class ElementDownloadDetailsService {
 
-    private final static String ULUZ_BASE_URL = "https://ulozto.net";
-    private final static String ULUZ_CAPTCHA_GET = "https://ulozto.net/download-dialog/free/download?fileSlug=";
-    private final static String ULUZ_CAPTCHA_RELOAD = "https://ulozto.net/reloadXapca.php?rnd=";
-    private final static String ERROR_CAPTCHA_GET = "User authentication required. We noticed too many download requests from your IP. Confirm that you are not a robot.";
+    private static final String ULUZ_BASE_URL = "https://ulozto.net";
+    private static final String ULUZ_CAPTCHA_GET = "https://ulozto.net/download-dialog/free/download?fileSlug=";
+    private static final String ULUZ_CAPTCHA_RELOAD = "https://ulozto.net/reloadXapca.php?rnd=";
+    private static final String ERROR_CAPTCHA_GET = "User authentication required. We noticed too many download requests from your IP. Confirm that you are not a robot.";
+
+    public static final String TEMP_EXT = ".dwn";
 
     public ElementDownloadDetailsService() {}
 
     public DownloadElement getDownloadInfo(DownloadElement downloadElement, String downloadFileSlugUrl) {
         try {
             if (downloadFileSlugUrl != null) {
-                downloadElement.setFileName(getFileNameFromUrl(downloadFileSlugUrl));
+                // create temp name
+                String fileNameFromUrl = getFileNameFromUrl(downloadFileSlugUrl);
+                downloadElement.setFileName(fileNameFromUrl + TEMP_EXT);
                 downloadElement.setCaptchaRequestUrl(createUrlToGetCaptcha(fileIdResolver(downloadFileSlugUrl)));
                 // wait between get requests
                 Thread.sleep(500);
@@ -158,6 +162,7 @@ public class ElementDownloadDetailsService {
         captchaDto.setCaptchaSound(downloadElement.getRequestElementForm().getAudioLink());
         captchaDto.setResponseCode(downloadElement.getStatusCode());
         captchaDto.setResponseMessage(downloadElement.getStatusMessage());
+        downloadElement = null;
         return captchaDto;
     }
 
@@ -226,23 +231,25 @@ public class ElementDownloadDetailsService {
                 formValues.put(name, value);
             }
         }
+        rawHtml = null;
+        doc = null;
         return formValues;
     }
 
     /*
      * Convert map to request form model
      * */
-    RequestElementForm getWebFormFromMap(RequestElementForm outerRequestElementForm, Map<String, String> formSourceMap) {
-        RequestElementForm requestElementForm = new RequestElementForm();
-        requestElementForm.setSalt(formSourceMap.get("salt"));
-        requestElementForm.setCaptchaDo(formSourceMap.get("_do"));
-        requestElementForm.setCaptchaType(formSourceMap.get("captcha_type"));
-        requestElementForm.setHash(formSourceMap.get("hash"));
-        requestElementForm.setPictureLink(formSourceMap.get("picture"));
-        requestElementForm.setTimestamp(formSourceMap.get("timestamp"));
-        requestElementForm.setAudioLink(formSourceMap.get("sound"));
-        return requestElementForm;
-    }
+//    RequestElementForm getWebFormFromMap(RequestElementForm outerRequestElementForm, Map<String, String> formSourceMap) {
+//        RequestElementForm requestElementForm = new RequestElementForm();
+//        requestElementForm.setSalt(formSourceMap.get("salt"));
+//        requestElementForm.setCaptchaDo(formSourceMap.get("_do"));
+//        requestElementForm.setCaptchaType(formSourceMap.get("captcha_type"));
+//        requestElementForm.setHash(formSourceMap.get("hash"));
+//        requestElementForm.setPictureLink(formSourceMap.get("picture"));
+//        requestElementForm.setTimestamp(formSourceMap.get("timestamp"));
+//        requestElementForm.setAudioLink(formSourceMap.get("sound"));
+//        return requestElementForm;
+//    }
 
     RequestElementForm getWebFormFromMap(Map<String, String> formSourceMap) {
         RequestElementForm requestElementForm = new RequestElementForm();
@@ -259,37 +266,38 @@ public class ElementDownloadDetailsService {
     String getErrorMessage(String document) {
         Document parse = Jsoup.parse(document);
         Elements select = parse.select("form#frm-rateLimitingCaptcha-form");
+        parse = null;
         if (!select.isEmpty())
             return ERROR_CAPTCHA_GET;
         return "";
     }
 
-    RequestElementForm getErrorMessage(RequestElementForm requestElementForm, String document) {
-        Document parse = Jsoup.parse(document);
-        Elements select = parse.select("form#frm-rateLimitingCaptcha-form");
-//        RequestElementForm form = new RequestElementForm();
-        if (!select.isEmpty())
-            requestElementForm.setPictureLink(ERROR_CAPTCHA_GET);
-//        return elementForm;
-        return requestElementForm;
-    }
+//    RequestElementForm getErrorMessage(RequestElementForm requestElementForm, String document) {
+//        Document parse = Jsoup.parse(document);
+//        Elements select = parse.select("form#frm-rateLimitingCaptcha-form");
+////        RequestElementForm form = new RequestElementForm();
+//        if (!select.isEmpty())
+//            requestElementForm.setPictureLink(ERROR_CAPTCHA_GET);
+////        return elementForm;
+//        return requestElementForm;
+//    }
 
     String replaceIllegalCharacters(String string) {
         String regex = "[/?<>\\\\*:|\"^]+";
         return string.replaceAll(regex, "_");
     }
 
-    public static void main(String[] args) {
-        ElementDownloadDetailsService downloadDetailsService = new ElementDownloadDetailsService();
-//        String test = "https://ulozto.net/file/xKH3AHVIF26G/metallica-load-zip#!ZGHjAGR1A2R2LGN1ZmOxAmt1A2ZkEmLlEzbhBSyIZmOwZQSu";
-//        try {
-//            RequestElementForm downloadInfo = downloadDetailsService.getDownloadInfo(test);
-//            System.out.println(downloadInfo);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-        String test = "Pantera - *** (2012) [FLAC] [16B-44.1kHz].zip/ ? < > \\ : * | \" ^";
-        System.out.println(downloadDetailsService.replaceIllegalCharacters(test));
-
-    }
+//    public static void main(String[] args) {
+//        ElementDownloadDetailsService downloadDetailsService = new ElementDownloadDetailsService();
+////        String test = "https://ulozto.net/file/xKH3AHVIF26G/metallica-load-zip#!ZGHjAGR1A2R2LGN1ZmOxAmt1A2ZkEmLlEzbhBSyIZmOwZQSu";
+////        try {
+////            RequestElementForm downloadInfo = downloadDetailsService.getDownloadInfo(test);
+////            System.out.println(downloadInfo);
+////        } catch (IOException e) {
+////            e.printStackTrace();
+////        }
+//        String test = "Pantera - *** (2012) [FLAC] [16B-44.1kHz].zip/ ? < > \\ : * | \" ^";
+//        System.out.println(downloadDetailsService.replaceIllegalCharacters(test));
+//
+//    }
 }

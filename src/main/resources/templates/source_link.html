@@ -179,7 +179,8 @@
                             <b>file state:</b>
                         </div>
                         <div class="col-auto">
-                            <span th:text="${#numbers.formatInteger(elem.dataOffset,1,'WHITESPACE') + ' / ' + #numbers.formatInteger(elem.dataTotalSize,1,'WHITESPACE') + ' bytes ' + '[' + elem.getPercentageProgress() + '%]'}"></span>
+<!--                            <span th:text="${#numbers.formatInteger(elem.dataOffset,1,'WHITESPACE') + ' / ' + #numbers.formatInteger(elem.dataTotalSize,1,'WHITESPACE') + ' bytes ' + '[' + elem.getPercentageProgress() + '%]'}"></span>-->
+                            <span th:text="${#numbers.formatInteger(elem.dataOffset,1,'WHITESPACE') + ' / ' + #numbers.formatInteger(elem.dataTotalSize,1,'WHITESPACE') + ' bytes ' + '[' + T(util.PercentageCalc).getPercentageProgress(elem) + '%]'}"></span>
                         </div>
                     </div>
                     <div class="row small">

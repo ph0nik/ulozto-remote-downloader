@@ -3,7 +3,6 @@ package service.download;
 import download.BinaryFileWriter;
 import download.ProgressCallback;
 import model.DownloadElement;
-import model.RequestElementForm;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -22,14 +21,15 @@ import util.ElementValidator;
 import websocket.NotificationDispatcher;
 import websocket.model.DispatchStatus;
 
-import javax.annotation.PostConstruct;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 @Service
 public class FileDownloadService {
@@ -53,15 +53,11 @@ public class FileDownloadService {
     @Autowired
     private ElementValidator elementValidator;
 
-    private RequestElementForm currentDownloadStatus;
+//    private RequestElementForm currentDownloadStatus;
     private DownloadElement currentDownloadElement;
-    private String downloadFolder;
+//    private String downloadFolder;
 
     private static boolean cancel;
-
-//    private static int errorCounter;
-
-//    private static boolean timeoutOrConnectivityError;
 
     public FileDownloadService() {
         cancel = false;
@@ -71,47 +67,93 @@ public class FileDownloadService {
         return cancel;
     }
 
-    public DownloadElement getCurrentDownloadStatus() {
-        return currentDownloadElement;
-    }
+//    public DownloadElement getCurrentDownloadStatus() {
+//        return currentDownloadElement;
+//    }
 
-    @PostConstruct
-    private void setUpDownloadFolder() {
-        downloadFolder = rootFolderResolver.getUserFolder();
-        System.out.println("[ download_folder ] User defined download path: " + downloadFolder);
-        String message = (rootFolderResolver.isFolderValid()) ? "path exists" : "path not found";
-        System.out.println("[ download_folder ] " + message);
-    }
+//    @PostConstruct
+//    private void setUpDownloadFolder() {
+//        downloadFolder = rootFolderResolver.getUserFolder();
+//        System.out.println("[ download_folder ] User defined download path: " + downloadFolder);
+//        String message = (rootFolderResolver.isFolderValid()) ? "path exists" : "path not found";
+//        System.out.println("[ download_folder ] " + message);
+//    }
 
     @Async
-    public Future<DownloadElement> generalDownload(DownloadElement downloadElement) {
-        // TODO add to this object timeout counter
-        // wrong byte data is being written
+    public Future<Long> generalDownload(DownloadElement downloadElement) {
+        // if no root folder found throw exception
+        if (getDownloadFolder().isEmpty()) throw new RuntimeException("[ general_download ] no root folder found");
         currentDownloadElement = downloadElement;
         cancel = false;
-//        errorCounter = 0;
         resumeDispatch(downloadElement);
-        Long totalBytes = 0L;
-//        try {
-        totalBytes = downloadWithFolder(downloadElement.getFileName(), downloadFolder, downloadElement.getFinalLink(), downloadElement.getDataOffset());
-//        } catch (IOException e) {
-//            currentDownloadElement.setResume(true);
-//            currentDownloadElement.setStatusMessage(e.getMessage());
-//            System.out.println("[ general_download ] " + e.getMessage());
-//        }
-
-        stateService.saveState(currentDownloadElement);
-        return new AsyncResult<>(currentDownloadElement);
+        long dataOffset = getFileOffset(currentDownloadElement);
+        currentDownloadElement.setDataOffset(dataOffset);
+        Long totalBytes = downloadWithFolder(downloadElement.getFileName(), getDownloadFolder(), downloadElement.getFinalLink(), dataOffset);
+        stateService.saveState(renameFile(currentDownloadElement, totalBytes));
+        currentDownloadElement = null;
+        return new AsyncResult<>(totalBytes);
     }
+
+    public DownloadElement renameFile(DownloadElement downloadElement, long totalBytes) {
+        long fileOffset = getFileOffset(downloadElement);
+        if (fileOffset == totalBytes) {
+            System.out.println("[ rename_file ] Download finished.");
+            String targetFileName = downloadElement.getFileName().replace(ElementDownloadDetailsService.TEMP_EXT, "");
+            Path fileToMovePath = Path.of(getDownloadFolder()).resolve(Path.of(downloadElement.getFileName()));
+            Path targetPath = Path.of(getDownloadFolder()).resolve(Path.of(targetFileName));
+            System.out.println("[ rename_file ] " + downloadElement.getFileName() + " => " + targetFileName);
+            try {
+                Files.move(fileToMovePath, targetPath);
+            } catch (IOException e) {
+                System.out.println("[ rename_file ] Error: " + e.getMessage());
+            }
+            downloadElement.setFileName(targetFileName);
+        }
+        return downloadElement;
+    }
+
 
     public String getDownloadFolder() {
-        if (downloadFolder != null) return downloadFolder;
-        return "none";
+        return rootFolderResolver.getUserFolder();
     }
+
+    public long getFileOffset(DownloadElement downloadElement) {
+        return (checkExistingFiles(downloadElement.getFileName())) ? getFileLength(downloadElement.getFileName()) : 0; //downloadElement.getDataOffset()
+    }
+
+    /*
+    * Get file size in bytes
+    * */
+    long getFileLength(String fileName) {
+        Path file = Path.of(getDownloadFolder()).resolve(Path.of(fileName));
+        long size = 0L;
+        try {
+            size = Files.size(file);
+            return size;
+        } catch (IOException e) {
+            System.out.println("[ get_length ] " + e.getMessage());
+        }
+        return size;
+    }
+
+    /*
+    * Check if given file exists within folder defined as download folder
+    * */
+    public boolean checkExistingFiles(String fileName) {
+        Path file = Path.of(getDownloadFolder()).resolve(Path.of(fileName));
+        boolean exists = false;
+        try (Stream<Path> files = Files.list(Path.of(getDownloadFolder()))) {
+            exists = files.anyMatch(f -> f.equals(file));
+        } catch (IOException e) {
+            System.out.println("[ check_existing ] " + e.getMessage());
+        }
+        return exists;
+    }
+
 
     public List<DownloadElement> isPathValid(List<DownloadElement> downloadElements) {
         for (DownloadElement elem : downloadElements) {
-            elem.setValidPath(elementValidator.isPathValid(elem, downloadFolder));
+            elem.setValidPath(elementValidator.isPathValid(elem, getDownloadFolder()));
         }
         return downloadElements;
     }
@@ -134,6 +176,7 @@ public class FileDownloadService {
         System.out.print("\r");
         sb.append(current).append(" / ").append(Math.round(total)).append(" bytes ").append("[").append(percent).append("%]");
         System.out.print(sb);
+        sb = null;
     }
 
     void resumeDispatch(DownloadElement downloadElement) {
@@ -143,12 +186,6 @@ public class FileDownloadService {
                     downloadElement.getFileName(),
                     downloadElement.getFinalLink(),
                     0);
-//            DispatchStatus dispatchStatus = new DispatchStatus();
-//            dispatchStatus.setFileName(downloadElement.getFileName());
-//            dispatchStatus.setFileSource(downloadElement.getFinalLink());
-//            dispatchStatus.setLength((double) downloadElement.getDataTotalSize());
-//            dispatchStatus.setTotalBytes(downloadElement.getDataOffset());
-//            dispatcher.dispatch(dispatchStatus);
         }
     }
 
@@ -180,11 +217,6 @@ public class FileDownloadService {
         }
         if (!cancel && errorCounter == 0 && currentDownloadElement.getDataTotalSize() > currentDownloadElement.getDataOffset())
             System.out.println("[ download_retry ] Too many attempts, aborting...");
-        // retry counter here
-//        String s = Path.of(folderName).resolve(Path.of(fileName)).toString();
-//        return downloadWithOkhttp(s, url, offset);
-        // if timeout wait given time and retry
-        // change wait time after each timeout up to some timeout count
         return dataOffset;
     }
 
@@ -199,7 +231,6 @@ public class FileDownloadService {
         double length = 0;
         ProgressCallback progressCallback = (x, y, z) -> printProgress(x, y, z, fileName, url);
         // build client
-        // TODO set timeout
         OkHttpClient client = new OkHttpClient().newBuilder()
 //                .cookieJar(RequestService.getCookieJar())
                 .followRedirects(true)
@@ -224,16 +255,30 @@ public class FileDownloadService {
                 BinaryFileWriter binaryFileWriter = new BinaryFileWriter(new FileOutputStream(fileName, resume), progressCallback, downloadOffset)
         ) {
             System.out.println("download headers : " + response.headers());
+            long actualConcentLength = Long.parseLong(response.header("Content-Length"));
+            long expectedContentLength = currentDownloadElement.getDataTotalSize() - downloadOffset;
+
+//            System.out.println("response code: " + response.code());
+            // response has no body or has wrong code
             ResponseBody body = response.body();
             if (body == null || response.isRedirect()) {
 //                throw new IllegalStateException("[ download ] Response doesn't contain a file");
                 System.out.println("[ download ] Aborted, response doesn't contain a file");
                 return 0L;
             }
+            // response has wrong size
+            if (currentDownloadElement.getDataTotalSize() !=0 && actualConcentLength != expectedContentLength) {
+                System.out.println("Expected content length is wrong.");
+                System.out.println("Body:");
+                System.out.println(body.string());
+                return 0L;
+            }
             length = Double.parseDouble(Objects.requireNonNull(response.header(HttpHeaders.CONTENT_LENGTH, "1")));
             if (currentDownloadElement.getDataTotalSize() < 1) currentDownloadElement.setDataTotalSize((long) length);
+            currentDownloadElement.setResume(true);
+            stateService.saveState(currentDownloadElement);
+            // start writing file
             downloadedBytes = binaryFileWriter.write(body.byteStream(), length, this);
-
         } catch (IOException ioException) {
             currentDownloadElement.setStatusMessage(ioException.getMessage());
             System.out.println("[ download ] connectivity problem or timeout " + ioException.getMessage());
