@@ -10,7 +10,7 @@ import java.nio.file.Path;
 public class ElementValidator {
 
     public boolean isPathValid(DownloadElement downloadElement, String rootFolder) {
-        Path resolve = Path.of(rootFolder).resolve(Path.of(downloadElement.getFileName()));
+        Path resolve = Path.of(rootFolder).resolve(downloadElement.getFileName());
         return Files.exists(resolve);
     }
 

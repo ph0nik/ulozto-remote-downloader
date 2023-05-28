@@ -182,7 +182,6 @@
 //        for (CsvBean bean : beans) {
 //            list.add(parseBeanToDownloadElement((SessionBean) bean));
 //        }
-//        // TODO
 //        correctInvalidDataSize(list);
 //        return list;
 //    }

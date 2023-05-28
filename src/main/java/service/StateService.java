@@ -33,4 +33,5 @@ public interface StateService {
     * */
     public void saveState(DownloadElement downloadElement);
 
+    void saveState();
 }

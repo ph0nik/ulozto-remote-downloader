@@ -1,5 +1,6 @@
 package controller;
 
+import exceptions.NetworkException;
 import model.CaptchaRequestDto;
 import model.CaptchaResponseDto;
 import model.DownloadElement;
@@ -31,10 +32,10 @@ public class UluzToRestController {
     * Controller made for test purposes only
     * */
     @PostMapping("/")
-    public CaptchaRequestDto getPageLink(@RequestParam("page") String page) throws ExpiredLinkException {
+    public CaptchaRequestDto getPageLink(@RequestParam("page") String page) throws ExpiredLinkException, NetworkException {
 //        downloadInfo = new RequestElementForm();
 
-            downloadElement = elementDownloadDetailsService.getDownloadInfo(new DownloadElement(), page);
+            downloadElement = elementDownloadDetailsService.getDownloadInfo(page);
 //            tempCookies = elementDownloadDetailsService.getCookieStore();
 
         CaptchaRequestDto captchaDto = elementDownloadDetailsService.getCaptchaDto(downloadElement);
@@ -47,7 +48,7 @@ public class UluzToRestController {
 
     @PostMapping(value = "/send", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public String sendCaptchaValue(@RequestBody CaptchaResponseDto captchaResponseDto) throws IOException {
+    public String sendCaptchaValue(@RequestBody CaptchaResponseDto captchaResponseDto) throws IOException, NetworkException {
         downloadElement.getRequestElementForm().setCaptchaValue(captchaResponseDto.getCaptchaValue());
         downloadElement = elementDownloadDetailsService.sendPostWithOkHttp(downloadElement);
         fileDownloadService.generalDownload(downloadElement);

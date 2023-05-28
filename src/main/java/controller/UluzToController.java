@@ -1,5 +1,6 @@
 package controller;
 
+import exceptions.NetworkException;
 import model.CaptchaRequestDto;
 import model.DownloadElement;
 import model.RequestElementForm;
@@ -24,58 +25,30 @@ import java.util.concurrent.Future;
 @RequestMapping(value = "/ulozto")
 @Validated
 public class UluzToController {
-
     @Autowired
     ElementDownloadDetailsService elementDownloadDetailsService;
-
     @Autowired
     FileDownloadService fileDownloadService;
-
     @Autowired
     @Qualifier("xmlService")
     StateService stateService;
-
     @Autowired
     CustomEventPublisher customEventPublisher;
-
-    private DownloadElement downloadElement;
-
-    private List<DownloadElement> downloadElementList;
-
     private Future<Long> future;
-
-//    private Boolean resumable = false;
-
-    private Boolean nowDownloading = false;
-    private Boolean downloadHistory = true;
-    private Boolean insertLink = true;
-    private Boolean downloadFinished = false;
-
-    private Boolean generalErrorStatus = false;
 
     @ModelAttribute("download_finished")
     public Boolean elementDownloadFinished() {
-        return downloadFinished;
+        return !futureStatus();
     }
 
     @ModelAttribute("elements_history")
-    public List<DownloadElement> loadDownloadHistory() {
-        if (stateService != null) {
-            downloadElementList = stateService.getStateList();
-            return fileDownloadService.isPathValid(downloadElementList);
-        }
-        return List.of(new DownloadElement());
+    public List<DownloadElement> getDownloadHistory() {
+        return fileDownloadService.getDownloadElements();
     }
-
 
     @ModelAttribute("future_status")
-    public Boolean futureStatus() {
+    public boolean futureStatus() {
         return future == null || future.isDone();
-    }
-
-    @ModelAttribute("download_element")
-    public DownloadElement setCurrentElement() {
-        return downloadElement;
     }
 
     @ModelAttribute("download_folder")
@@ -83,85 +56,70 @@ public class UluzToController {
         return fileDownloadService.getDownloadFolder();
     }
 
-    @ModelAttribute("showInsertLink")
-    public boolean showInsertLink() {
-        return insertLink;
-    }
-
-    @ModelAttribute("showNowDownloading")
-    public boolean showNowDownloading() {
-        return nowDownloading;
-    }
-
-    @ModelAttribute("showDownloadHistory")
-    public boolean showDownloadHistory() {
-        return downloadHistory;
-    }
-
     @GetMapping("/")
     public String startPage(Model model) {
-        loadDownloadHistory();
-        model.addAttribute("elements_history", downloadElementList);
-        if (future != null && !future.isDone()) {
-            insertLink = downloadHistory = false;
-            nowDownloading = true;
-        } else {
-            insertLink = downloadHistory = true;
-            nowDownloading = false;
+        if (!futureStatus()) {
+            return "download_info";
         }
-        if (downloadElement != null) {
-            model.addAttribute("generalError", downloadElement.getStatusMessage());
-            model.addAttribute("generalErrorStatus", true);
-        }
-        model.addAttribute("showInsertLink", insertLink);
-        model.addAttribute("showNowDownloading", nowDownloading);
-        model.addAttribute("showDownloadHistory", downloadHistory);
         return "source_link";
     }
 
     @GetMapping("/resume_download/{id}")
     public String resumeCurrent(@PathVariable("id") int id, Model model) {
-        System.out.println("[ controller_resume ] id: " + id);
-        System.out.println("[ controller_resume ] " + downloadElementList.get(id));
-        downloadElement = downloadElementList.get(id);
+        DownloadElement downloadElement = getDownloadHistory().get(id);
         if (elementDownloadDetailsService.isValidDownload(downloadElement)) {
+            fileDownloadService.setCurrentDownloadElement(downloadElement);
             return "redirect:/ulozto/download";
         } else {
-            //TODO get the same file offset and rerun
-            downloadElement.setStatusMessage("Link expired");
-            System.out.println("expired");
-            return "redirect:/ulozto/";
+            return "redirect:/ulozto/refresh_link/" + id;
         }
+    }
+
+    @GetMapping("/error_test")
+    public String checkErrorResponse() throws NetworkException {
+        return "redirect:/ulozto/";
     }
 
     @GetMapping("/delete_element/{id}")
     public String deleteElement(@PathVariable("id") int id, Model model) {
-        System.out.println("[ controller_delete ] id: " + id);
-        System.out.println("[ controller_delete ] " + downloadElementList.get(id));
-        downloadElementList = stateService.removeSelectedElement(id);
+        stateService.removeSelectedElement(id);
         return "redirect:/ulozto/";
     }
 
     @GetMapping("/download")
-    public String getDownloadPage(Model model) {
+    public String getDownloadPage(Model model) throws NetworkException {
+        DownloadElement downloadElement = fileDownloadService.getCurrentDownloadElement();
         if (downloadElement.getFinalLink() != null && !downloadElement.getFinalLink().isEmpty()) {
             if (elementDownloadDetailsService.hasProperLocation(downloadElement)) {
                 future = fileDownloadService.generalDownload(downloadElement);
-                insertLink = downloadHistory = downloadFinished = false;
-                nowDownloading = true;
-                model.addAttribute("showInsertLink", insertLink);
-                model.addAttribute("showNowDownloading", nowDownloading);
-                model.addAttribute("showDownloadHistory", downloadHistory);
-                model.addAttribute("download_finished", downloadFinished);
+                model.addAttribute("future_status", futureStatus());
             } else {
-                downloadElement = elementDownloadDetailsService.setErrorMessage(downloadElement);
-                model.addAttribute("download_element", downloadElement);
+                throw new NetworkException("Too many connections");
             }
-            return "source_link";
+            return "download_info";
         }
         CaptchaRequestDto captchaDto = elementDownloadDetailsService.getCaptchaDto(downloadElement);
         model.addAttribute("captcha_dto", captchaDto);
         return "captcha_input";
+    }
+
+    @PostMapping("/send_captcha/captcha={captcha}")
+    public String getCaptchaValue(@RequestParam("captcha") String captcha, Model model) throws IOException {
+        DownloadElement downloadElement = fileDownloadService.getCurrentDownloadElement();
+        downloadElement.getRequestElementForm().setCaptchaValue(captcha);
+        downloadElement = elementDownloadDetailsService.sendPostWithOkHttp(downloadElement);
+        if (downloadElement.getStatusCode() != 418) {
+            return "redirect:/ulozto/download";
+        } else {
+            return "redirect:/ulozto/reload";
+        }
+    }
+
+    @GetMapping("/refresh_link/{id}")
+    public String refreshLink(@PathVariable("id") int id, Model model) {
+        DownloadElement downloadElement = getDownloadHistory().get(id);
+        fileDownloadService.setCurrentDownloadElement(elementDownloadDetailsService.getCaptchaOrDownloadLink(downloadElement));
+        return "redirect:/ulozto/download";
     }
 
     @PostMapping("/get_link/page={page}")
@@ -170,7 +128,8 @@ public class UluzToController {
             System.out.println("[ get_page_link ] invalid link format: " + page);
             return "redirect:/ulozto/";
         }
-        downloadElement = elementDownloadDetailsService.getDownloadInfo(new DownloadElement(), page);
+        DownloadElement downloadElement = elementDownloadDetailsService.getDownloadInfo(page);
+        fileDownloadService.setCurrentDownloadElement(downloadElement);
         if (downloadElement.getStatusCode() > 400) {
             return "redirect:/ulozto/";
         }
@@ -185,20 +144,10 @@ public class UluzToController {
         return "redirect:/ulozto/";
     }
 
-    @PostMapping("/send_captcha/captcha={captcha}")
-    public String getCaptchaValue(@RequestParam("captcha") String captcha, Model model) throws IOException {
-        downloadElement.getRequestElementForm().setCaptchaValue(captcha);
-        downloadElement = elementDownloadDetailsService.sendPostWithOkHttp(downloadElement);
-        if (downloadElement.getStatusCode() != 418) {
-            return "redirect:/ulozto/download";
-        } else {
-            return "redirect:/ulozto/reload";
-        }
-    }
-
     @GetMapping("/reload")
-    public String reloadCaptcha(Model model) throws IOException {
+    public String reloadCaptcha(Model model) {
         CaptchaRequestDto captchaRequestDto;
+        DownloadElement downloadElement = fileDownloadService.getCurrentDownloadElement();
         if (downloadElement != null && downloadElement.getRequestElementForm() != null) {
             RequestElementForm requestElementForm = downloadElement.getRequestElementForm();
             requestElementForm = elementDownloadDetailsService.reloadCaptcha(requestElementForm);
@@ -218,7 +167,7 @@ public class UluzToController {
 //            Wait for async function to finish
         }
         try {
-            long bytesDownloaded = future.get();
+            System.out.printf("[ cancel_controller ] downloaded: %d%n", future.get());
         } catch (InterruptedException | ExecutionException e) {
             System.out.println("[ cancel_controller ] Unable to get future result: " + e.getMessage());
         }
@@ -226,8 +175,10 @@ public class UluzToController {
     }
 
     @GetMapping("/clear_history")
-    public String clearHistory(Model model) {
-        downloadElementList = stateService.removeFinishedElements().removeInvalidElements().getStateList();
+    public String clearHistory() {
+        stateService.removeFinishedElements()
+                .removeInvalidElements()
+                .saveState();
         return "redirect:/ulozto/";
     }
 }

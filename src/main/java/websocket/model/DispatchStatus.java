@@ -2,29 +2,60 @@ package websocket.model;
 
 public class DispatchStatus {
 
+    private DownloadStatus downloadStatus;
     private String fileSource;
     private String fileName;
     private String folderName;
-    private Long totalBytes;
-    private Double length;
-    private Double transferRate;
+    private long totalBytes;
+    private double length;
+    private double transferRate;
+    private String errorMessage;
+    private long errorValue;
 
-    public Double getTransferRate() {
+    public DownloadStatus getDownloadStatus() {
+        return downloadStatus;
+    }
+
+    public DispatchStatus setDownloadStatus(DownloadStatus downloadStatus) {
+        this.downloadStatus = downloadStatus;
+        return this;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public DispatchStatus setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+        return this;
+    }
+
+    public long getErrorValue() {
+        return errorValue;
+    }
+
+    public DispatchStatus setErrorValue(long errorValue) {
+        this.errorValue = errorValue;
+        return this;
+    }
+
+    public double getTransferRate() {
         return transferRate;
     }
 
-    public void setTransferRate(Double transferRate) {
+    public DispatchStatus setTransferRate(double transferRate) {
         this.transferRate = transferRate;
+        return this;
     }
 
     public String getFolderName() {
         return folderName;
     }
 
-    public void setFolderName(String folderName) {
+    public DispatchStatus setFolderName(String folderName) {
         this.folderName = folderName;
+        return this;
     }
-
 
     public boolean isResumable() {
         return length - totalBytes == 0;
@@ -34,32 +65,36 @@ public class DispatchStatus {
         return fileSource;
     }
 
-    public void setFileSource(String fileSource) {
+    public DispatchStatus setFileSource(String fileSource) {
         this.fileSource = fileSource;
+        return this;
     }
 
     public String getFileName() {
         return fileName;
     }
 
-    public void setFileName(String fileName) {
+    public DispatchStatus setFileName(String fileName) {
         this.fileName = fileName;
+        return this;
     }
 
-    public Long getTotalBytes() {
+    public long getTotalBytes() {
         return totalBytes;
     }
 
-    public void setTotalBytes(Long totalBytes) {
+    public DispatchStatus setTotalBytes(long totalBytes) {
         this.totalBytes = totalBytes;
+        return this;
     }
 
-    public Double getLength() {
+    public double getLength() {
         return length;
     }
 
-    public void setLength(Double length) {
+    public DispatchStatus setLength(double length) {
         this.length = length;
+        return this;
     }
 
     @Override

@@ -11,20 +11,33 @@ import java.sql.Timestamp;
 @XmlRootElement(name = "element")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class DownloadElement {
-
     private RequestElementForm requestElementForm;
     private String fileName;
     private String captchaRequestUrl;
     private String finalLink;
+    private String originalLink;
     private long dataOffset;
     private long dataTotalSize;
     private boolean resume;
+    private Status status;
     private int statusCode;
     private String statusMessage;
     @XmlJavaTypeAdapter(TimestampAdapter.class)
     private Timestamp timestamp;
 
     private boolean validPath;
+
+    public DownloadElement() {
+        this.status = Status.READY;
+    }
+
+    public String getOriginalLink() {
+        return originalLink;
+    }
+
+    public void setOriginalLink(String originalLink) {
+        this.originalLink = originalLink;
+    }
 
     public boolean isValidPath() {
         return validPath;
@@ -34,6 +47,14 @@ public class DownloadElement {
         this.validPath = validPath;
     }
 
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
     public Timestamp getTimestamp() {
         return timestamp;
     }
@@ -41,14 +62,6 @@ public class DownloadElement {
     public void setTimestamp(Timestamp timestamp) {
         this.timestamp = timestamp;
     }
-
-//    public double getPercentageProgress() {
-//        if (dataTotalSize >= dataOffset) {
-//            double v = (dataOffset * 100d) / dataTotalSize;
-//            return Math.round(v * 100.0) / 100d;
-//        }
-//        return 0;
-//    }
 
     public long getDataTotalSize() {
         return dataTotalSize;
@@ -99,7 +112,9 @@ public class DownloadElement {
     }
 
     public boolean isResume() {
-        return resume;
+        return status != Status.EXPIRED
+                && status != Status.FINISHED;
+//        return resume;
     }
 
     public void setResume(boolean resume) {
@@ -129,9 +144,11 @@ public class DownloadElement {
                 ", fileName='" + fileName + '\'' +
                 ", captchaRequestUrl='" + captchaRequestUrl + '\'' +
                 ", finalLink='" + finalLink + '\'' +
+                ", originalLink='" + originalLink + '\'' +
                 ", dataOffset=" + dataOffset +
                 ", dataTotalSize=" + dataTotalSize +
                 ", resume=" + resume +
+                ", status=" + status +
                 ", statusCode=" + statusCode +
                 ", statusMessage='" + statusMessage + '\'' +
                 ", timestamp=" + timestamp +

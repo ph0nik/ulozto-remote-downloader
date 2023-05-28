@@ -1,25 +1,19 @@
 package service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Service
 public class RootFolderResolver {
-
     public static final String FOLDER = "dpath";
-
     private String userFolder;
+    private final Environment env;
 
-    @Autowired
-    private Environment env;
-
-    @PostConstruct
-    private void setUserFolder() {
+    public RootFolderResolver(Environment env) {
+        this.env = env;
         userFolder = (env.containsProperty(FOLDER) && validateFolder(env.getProperty(FOLDER))) ? env.getProperty(FOLDER) : "";
         if (userFolder.isEmpty()) {
             System.out.println("[ root_folder ] path not found");
@@ -37,19 +31,14 @@ public class RootFolderResolver {
     }
 
     /*
-    * Returns true if user folder is non-empty and if it exists
-    * */
-    public boolean isFolderValid() {
-        if (userFolder == null || userFolder.isEmpty()) return false;
-        return validateFolder(userFolder);
-    }
-
-    /*
     * Set user folder based of environment variable
     * */
     public String getUserFolder() {
+        if (userFolder.isEmpty() && env.containsProperty(FOLDER)) {
+            String folder = env.getProperty(FOLDER);
+            userFolder = (validateFolder(folder)) ? folder : "";
+        }
         return userFolder;
     }
-
 
 }

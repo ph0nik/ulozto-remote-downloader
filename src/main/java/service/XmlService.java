@@ -23,17 +23,15 @@ import java.util.stream.Collectors;
 
 @Service
 public class XmlService implements StateService {
-
     private static final String FILENAME = "download_state.xml";
     private static final String DIR = "config";
-    private Downloads downloads;
+    private Downloads downloads = new Downloads(); // moved from constructor
 
     @Autowired
     private AppdataResolver appdataResolver;
     private final Path stateFilePath;
 
     public XmlService() {
-        downloads = new Downloads();
         downloads.setDownloadElements(new LinkedList<>());
         stateFilePath = Path.of(DIR).resolve(Path.of(FILENAME));
     }
@@ -81,7 +79,7 @@ public class XmlService implements StateService {
                         .stream()
                         .filter(DownloadElement::isResume)
                         .collect(Collectors.toList()));
-        saveState();
+//        saveState();
         return this;
     }
 
@@ -92,7 +90,7 @@ public class XmlService implements StateService {
                         .stream()
                         .filter(DownloadElement::isValidPath)
                         .collect(Collectors.toList()));
-        saveState();
+//        saveState();
         return this;
     }
 
@@ -120,14 +118,15 @@ public class XmlService implements StateService {
         saveState();
     }
 
-    private void saveState() {
+    @Override
+    public void saveState() {
         try {
             System.out.println("[ save_state ] saving...");
             JAXBContext context = JAXBContext.newInstance(Downloads.class);
             Marshaller mar = context.createMarshaller();
             mar.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
             mar.marshal(downloads, stateFilePath.toFile());
-        } catch (JAXBException e) {
+        } catch (JAXBException e) { // TODO pass to the user
             System.out.println("[ save_state ] " + e.getMessage());
         }
     }
@@ -138,30 +137,10 @@ public class XmlService implements StateService {
             Unmarshaller unmarshaller = context.createUnmarshaller();
             File file = stateFilePath.toFile();
             List<DownloadElement> temp = new LinkedList<>();
-//            temp = (Downloads) unmarshaller.unmarshal(file);
             downloads = (Downloads) unmarshaller.unmarshal(file);
-            System.out.println(downloads.getDownloadElements());
-        } catch (JAXBException e) {
+        } catch (JAXBException e) { // TODO pass to the user
             System.out.println("[ save_state ] " + e.getMessage());
         }
     }
-//
-//
-//    public static void main(String[] args) {
-//        DownloadElement de = new DownloadElement();
-//        de.setStatusCode(200);
-//        de.setStatusMessage("status message");
-//        de.setTimestamp(Timestamp.from(Instant.now()));
-//        de.setResume(true);
-//        de.setFileName("some filename with special characters '");
-//        de.setDataTotalSize(0);
-//        de.setFinalLink("final link");
-//        XmlService xmlService = new XmlService();
-//        xmlService.addNewElement(de);
-//        try {
-//            xmlService.saveElements();
-//        } catch (JAXBException e) {
-//            throw new RuntimeException(e);
-//        }
-//    }
+
 }

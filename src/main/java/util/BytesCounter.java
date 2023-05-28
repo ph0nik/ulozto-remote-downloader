@@ -2,30 +2,23 @@ package util;
 
 public class BytesCounter {
 
-    private static final int BYTE_INTERVAL = 1024;
-    private long counter;
+    private final int byteInterval;
+    private long counter = 0;
     private long startTimeMark;
+    private long currentBytesPerSecond = 0;
+//    private double prevBytesPerSecond;
 
-    private double currentBytesPerSecond;
-    private double prevBytesPerSecond;
-
-    public BytesCounter() {
-        counter = 0;
-        currentBytesPerSecond = 0;
-    }
-
-    private void resetCounter() {
-        counter = 0;
+    public BytesCounter(int byteInterval) {
+        this.byteInterval = byteInterval;
     }
 
     public void setMark() {
         if (counter == 0) {
             startTimeMark = System.currentTimeMillis();
             counter++;
-        } else if (counter == BYTE_INTERVAL) {
-            long endTimeMark = System.currentTimeMillis();
-            calculateBitrate(endTimeMark);
-            resetCounter();
+        } else if (counter == byteInterval) {
+            calculateBitrate(System.currentTimeMillis());
+            counter = 0;
         } else {
             counter++;
         }
@@ -33,11 +26,19 @@ public class BytesCounter {
 
     private void calculateBitrate(long endTimeMark) {
         long tempTime = endTimeMark - startTimeMark;
-        long tempRate = (tempTime > 0) ? Math.round((BYTE_INTERVAL * 1000d) / tempTime) : 0;
-        currentBytesPerSecond = (prevBytesPerSecond != 0) ? (tempRate + prevBytesPerSecond) / 2 : tempRate;
+        long tempRate = (tempTime > 0)
+                ? Math.round((byteInterval * 1000d) / tempTime)
+                : 0;
+        currentBytesPerSecond = (currentBytesPerSecond != 0)
+                ? Math.round((tempRate + currentBytesPerSecond) / 2d)
+                : tempRate;
+
+//        currentBytesPerSecond = (prevBytesPerSecond != 0)
+//                ? (tempRate + prevBytesPerSecond) / 2
+//                : tempRate;
     }
 
-    public double getBitrate() {
+    public long getBitrate() {
         return currentBytesPerSecond;
     }
 

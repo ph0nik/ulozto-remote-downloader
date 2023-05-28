@@ -30,7 +30,7 @@
               method="get">
             <div class="row bg-light">
                 <div class="col">
-                    <b>Insert captcha</b>
+                    <b class="text-muted">Insert link >> </b><b>Enter captcha</b>
                 </div>
             </div>
             <div class="row align-items-center my-2">
@@ -64,47 +64,10 @@
                 </label>
                 <input class="form-control form-control-sm" type="text" id="send_captcha" value="" name="captcha"
                        placeholder="" required>
-                <button type="submit" class="btn btn-primary">send link</button>
+                <button type="submit" class="btn btn-primary">verify</button>
             </div>
         </form>
     </div>
-<!--    <div class="row">-->
-<!--        <div class="col">-->
-<!--            <img th:src="${captcha_dto.captchaPicture}">-->
-<!--        </div>-->
-<!--        &lt;!&ndash; reload captcha&ndash;&gt;-->
-<!--        <div class="col">-->
-<!--            <form action="#"-->
-<!--                  th:action="@{/ulozto/reload/}"-->
-<!--                  method="get">-->
-<!--                <button class="btn btn-primary" type="submit">reload</button>-->
-<!--            </form>-->
-<!--        </div>-->
-<!--    </div>-->
-<!--    <div class="col">-->
-<!--        <audio controls>-->
-<!--            <source th:src="${captcha_dto.captchaSound}" type="audio/mpeg">-->
-<!--        </audio>-->
-<!--    </div>-->
-    <!-- send captcha -->
-
-<!--    <form class="form-control"-->
-<!--          action="#"-->
-<!--          th:action="@{/ulozto/send_captcha/captcha={captcha} (captcha=${captcha})}"-->
-
-<!--          method="post">-->
-<!--        <div class="input-group">-->
-<!--            <input class="form-control" type="text" value="" name="captcha">-->
-<!--            <button type="submit" class="btn btn-primary">send</button>-->
-<!--        </div>-->
-<!--    </form>-->
-
-
-    <!-- captcha test -->
-<!--    <span th:text="'response code ' + ${captcha_dto.responseCode}"></span>-->
-<!--    <span th:text="'message ' + ${captcha_dto.responseMessage}"></span>-->
-<!--    <span th:text="'picture ' + ${captcha_dto.captchaPicture}"></span>-->
-<!--    <span th:text="'sound ' + ${captcha_dto.captchaSound}"></span>-->
 </div>
 
 </body>

@@ -1,17 +1,34 @@
-
 let port = 8081;
 let stompClient;
 
-function printResponse(response) {
+function printProgress(response) {
     let responseObj = JSON.parse(response.body);
+    switch (responseObj.downloadStatus) {
+        case 'OK': {
+            processOk(responseObj);
+            break;
+        }
+        case 'ERROR': {
+            processError(responseObj);
+            break;
+        }
+        case 'WAIT': {
+            processWait(responseObj);
+            break;
+        }
+    }
+//    if (responseObj.downloadStatus == 'OK') processOk(responseObj)
+//    else if (responseObj.downloadStatus == 'WAIT') processWait(responseObj)
+//    else processError(responseObj);
+}
 
+function processOk(responseObj) {
     let fileName = document.getElementById('file_name');
     let fileSource = document.getElementById('file_source');
-    let progress = document.getElementById('progress-text');
-    let percentage = document.getElementById('progress');
-    let history = document.getElementById('downloadHistory');
-    let cancelButton = document.getElementById('currentDownloadCancel');
-    let finishButton = document.getElementById('currentDownloadDone');
+    let progress = document.getElementById('progress_text');
+    let percentage = document.getElementById('progress_value');
+    let cancelButton = document.getElementById('current_download_cancel');
+    let finishButton = document.getElementById('current_download_done');
 
     fileName.textContent = responseObj.fileName;
     fileSource.textContent = responseObj.fileSource;
@@ -23,12 +40,36 @@ function printResponse(response) {
         cancelButton.remove();
         percentage.setAttribute("class", "progress-bar bg-success");
     }
-    progress.textContent = insertSpacesInTransferRate(responseObj.totalBytes) + ' / ' + insertSpacesInTransferRate(responseObj.length) + ' bytes [ ' + percentageValue + '% ] | ' + transferRate;
+    progress.textContent = insertSpacesInTransferRate(responseObj.totalBytes)
+    + ' / ' + insertSpacesInTransferRate(responseObj.length)
+    + ' bytes [ ' + percentageValue + '% ] | ' + transferRate;
 
     percentage.innerHTML = percentageValue + "%";
     percentage.setAttribute("style","width: " + percentageValue + "%");
     percentage.setAttribute("aria-valuenow", percentageValue);
+}
 
+function processWait(responseObj) {
+    let progress = document.getElementById('progress_text');
+    progress.textContent = 'Something went wrong, download will resume in... '
+        + getReadableTime(responseObj.transferRate);
+}
+
+function getReadableTime(counter) {
+    let seconds = counter / 1000;
+    let hours = Math.floor(seconds / 3600);
+    if (hours < 10) hours = '0' + hours;
+    seconds = seconds % 3600;
+    let minutes = Math.floor(seconds / 60);
+    if (minutes < 10) minutes = '0' + minutes;
+    seconds = Math.floor(seconds % 60);
+    if (seconds < 10) seconds = '0' + seconds;
+    return hours + ':' + minutes + ':' + seconds;
+}
+
+function processError(error) {
+    let progress = document.getElementById('progress_text');
+    document.getElementById('download_error').textContent = error.errorMessage;
 }
 
 // calculate percentage value
@@ -39,7 +80,6 @@ function getPercentage(current, total) {
             return 100;
        }
 }
-
 
 function insertSpacesInTransferRate(value) {
 let arr = value.toString().split('');
@@ -73,7 +113,7 @@ function connect() {
     stompClient = Stomp.over(socket);
     stompClient.connect({}, function () {
         stompClient.subscribe("/user/notification/item", function (response) {
-            printResponse(response);
+            printProgress(response);
         });
         console.info("connected!")
     });

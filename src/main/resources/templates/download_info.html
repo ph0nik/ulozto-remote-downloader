@@ -1,0 +1,108 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org"
+      lang="en">
+
+<head>
+    <title>ulozto remote downloader | input file link</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <!--    <link href="../static/css/all.css" rel="stylesheet">-->
+    <link th:href="@{/css/all.css}" rel="stylesheet"/>
+    <!--        <link href="../static/style.css" rel="stylesheet">-->
+    <!--    <link th:href="@{/style.css}" rel="stylesheet"/>-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" th:src="@{/js/sockjs.js}"></script>
+    <script type="text/javascript" th:src="@{/js/stomp.js}"></script>
+    <script type="text/javascript" th:src="@{/js/script.js}"></script>
+</head>
+<body class="container-sm">
+<div class="row">
+    <a th:href="@{/ulozto/}" href="#">ulozto remote downloader</a>
+</div>
+<div class="row">
+    <!--now downloading title-->
+    <div id="currentDownloadSession">
+        <div class="row bg-light">
+            <div class="col">
+                <b class="text-muted">Insert link >> Enter captcha >></b><b> Now downloading</b>
+            </div>
+        </div>
+        <div class="row align-items-center justify-content-start">
+            <!--file info-->
+            <div class="col">
+                <div class="row small mb-2">
+                    <div class="col-auto">
+                        <b>file name:</b>
+                    </div>
+                    <div class="col text-break" id="file_name">
+                        <!--                        G:\Temp\Overkill-1988-Under The Influence (Rock Candy Remastered 2019) (320kb).rar-->
+                    </div>
+                </div>
+                <div class="row small mb-2">
+                    <div class="col-auto">
+                        <b>link:</b>
+                    </div>
+                    <div class="col text-break" id="file_source">
+                        <!--                        https://download.greencdn.io/Ps;Hs;up=0;cid=830563499;uip=31.178.230.216;aff=ulozto.net;did=ulozto-net;fide=32XgFpH;fs=ibCtiHye6vfb;hid=7NopKoM;rid=1011492508;tm=1675371568;ut=f;rs=0;fet=download_free;He;ch=9a806008522ba4c9fdd9ce2843bc2d1d;Pe/file/ibCtiHye6vfb/overkill-1988-under-the-influence-rock-candy-remastered-2019-320kb-rar?bD&c=830563499&De-->
+                    </div>
+                </div>
+                <div class="row small mb-2">
+                    <div class="col-auto">
+                        <b>progress:</b>
+                    </div>
+                    <div class="col" id="progress_text">
+                        <!--                        73215179 / 106376456 bytes [ 69% ] | 333 kB/s-->
+                    </div>
+                </div>
+                <!--progres bar-->
+                <div class="progress" style="height: 2em">
+                    <div class="progress-bar bg-warning" id="progress_value" role="progressbar" style="width: 0%;"
+                         aria-valuenow="0"
+                         aria-valuemin="0"
+                         aria-valuemax="100">0%
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="row align-items-center justify-content-start">
+            <!--cancel-->
+            <div th:hidden="${future_status}" id="current_download_cancel" class="col-auto">
+                <form action="#"
+                      th:action="@{/ulozto/cancel_current/}"
+                      method="get">
+                    <button type="submit" class="btn btn-lg col text-danger fs-6">
+                        <i class="bi bi-x-circle"></i>
+                        <span>cancel</span>
+                    </button>
+                </form>
+            </div>
+            <!--finished-->
+            <div th:hidden="${!future_status}" id="current_download_done"
+                 class="col-auto text-center text-success fs-6">
+                <i class="bi bi-check-lg"></i>
+                <span>done!</span>
+            </div>
+            <!--error msg-->
+            <div class="col-auto" id="download_error"></div>
+        </div>
+    </div>
+
+    <!-- temporarily show set folder -->
+    <div class="row align-items-center">
+        <div class="col-auto fs-5">
+            <i class="bi bi-folder-check"></i>
+        </div>
+        <div class="col-auto text-secondary fs-6">
+                    <span th:text="${download_folder}" class="">
+<!--            c:\asdasd\asdasd\asdasd-->
+        </span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

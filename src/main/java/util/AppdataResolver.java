@@ -19,7 +19,7 @@ public class AppdataResolver {
             try {
                 System.out.println("[ appdata ] creating directory: '" + dir + "'");
                 Files.createDirectory(dir);
-            } catch (IOException e) {
+            } catch (IOException e) { // TODO pass to the user
                 System.out.println("[ appdata ] " + e.getMessage());
             }
         } else {

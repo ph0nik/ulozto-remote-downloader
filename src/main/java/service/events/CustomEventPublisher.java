@@ -11,7 +11,7 @@ public class CustomEventPublisher {
     private ApplicationEventPublisher applicationEventPublisher;
 
     public void cancelEvent() {
-        System.out.println("[ custom_publisher ] event");
+//        System.out.println("[ custom_publisher ] event");
         CancelEvent cancelEvent = new CancelEvent(this);
         applicationEventPublisher.publishEvent(cancelEvent);
     }
